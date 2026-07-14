@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, CheckCircle2, PackageSearch } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/status-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatMoney } from "@/domain/money";
+import { calculateOrderFinancials } from "@/domain/calculations";
+import type { DashboardData } from "@/domain/types";
+
+export function DashboardBottom({ data }: { data: Pick<DashboardData, "recentOrders" | "warnings"> }) {
+  return <div className="mt-5 grid gap-4 xl:grid-cols-12">
+    <section className="panel min-w-0 overflow-hidden xl:col-span-8"><div className="flex items-center justify-between border-b p-4"><div><h2 className="text-sm font-semibold text-slate-950">Recent orders</h2><p className="mt-0.5 text-xs text-muted-foreground">Latest activity across every channel</p></div><Button variant="ghost" size="sm" render={<Link href="/orders" />}>View all <ArrowRight /></Button></div><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Customer</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader><TableBody>{data.recentOrders.map((order) => <TableRow key={order.id}><TableCell><Link href={`/orders/${order.id}`} className="font-medium text-primary hover:underline">{order.orderNumber}</Link><p className="text-xs text-muted-foreground">{order.orderDate}</p></TableCell><TableCell>{order.customerName}<p className="text-xs text-muted-foreground">{order.channel}</p></TableCell><TableCell><StatusBadge value={order.status} /></TableCell><TableCell className="money text-right font-medium">{formatMoney(calculateOrderFinancials(order).orderTotal)}</TableCell></TableRow>)}</TableBody></Table></div></section>
+    <section className="panel p-4 xl:col-span-4"><div><h2 className="text-sm font-semibold text-slate-950">Attention needed</h2><p className="mt-0.5 text-xs text-muted-foreground">Inventory and data-quality signals</p></div><div className="mt-4 flex flex-col gap-3">{data.warnings.map((warning) => <div key={warning.id} className={`rounded-lg border p-3 ${warning.tone === "danger" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}><div className="flex gap-3">{warning.tone === "danger" ? <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-600" /> : <PackageSearch className="mt-0.5 size-4 shrink-0 text-amber-600" />}<div><p className="text-xs font-semibold text-slate-900">{warning.title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{warning.detail}</p></div></div></div>)}<div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700"><CheckCircle2 className="size-4" /> Order item totals reconcile</div></div><Button variant="outline" size="sm" className="mt-4 w-full" render={<Link href="/data-checks" />}>Open data checks</Button></section>
+  </div>;
+}
