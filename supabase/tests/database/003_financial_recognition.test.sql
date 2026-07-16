@@ -1,4 +1,5 @@
 begin;
+set local search_path = public, extensions, pg_catalog;
 select no_plan();
 
 create temporary table financial_test_ids (

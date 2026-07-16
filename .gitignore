@@ -14,7 +14,7 @@
 /coverage
 /test-results/
 /playwright-report/
-/docs/schema-audit/outputs/*.csv
+/docs/schema-audit/outputs/
 
 # next.js
 /.next/

@@ -1,8 +1,54 @@
 # Phase 2 preflight
 
-No migration or development baseline SQL in this repository has been applied.
-The production schema was inspected through the metadata-only SQL Editor export,
-and the existing NexaNotion website repository remained read-only.
+## Development rehearsal status - verified 16 July 2026
+
+The Docker-free development migration rehearsal passed from Git checkpoint
+`ef866f80e8eceefad33a6808622fa1b4dc619e29`. The guarded storefront baseline,
+read-only preflight, and migrations `202607140001` through `202607140009` were
+applied manually and separately through the Supabase SQL Editor in
+**NexaNotion Business Dashboard Dev**. Migration `202607140000` remained a
+read-only compatibility gate.
+
+The verified development result is:
+
+- storefront baseline verification: 8/8;
+- final schema verification: 10/10;
+- one active development `owner` profile preserved, with no email or password
+  recorded in Git or project documentation;
+- pgTAP: 13/13 RLS, 9/9 function security, and 14/14 financial recognition
+  assertions (36/36 total);
+- controlled reconciliation passed for all five payment methods;
+- Delivered recognition snapshots: 3 expected and 3 actual;
+- Pending recognition snapshots: 0 expected and 0 actual;
+- refund adjustment: 20.00 expected and 20.00 actual;
+- inventory unchanged and `decrement_product_stock` not called;
+- all eight data-quality counts were zero;
+- cleanup verifier: 18/18 synthetic-record counts were zero after rollback.
+
+No production database was changed. The production schema was only inspected
+through the metadata-only SQL Editor export, and the existing NexaNotion website
+repository remained read-only and unmodified.
+
+## Migration-history gate
+
+The manual SQL Editor executions verified schema behavior, but they did not use
+the normal Supabase CLI migration workflow. Direct SQL Editor changes do not
+automatically establish matching history in
+`supabase_migrations.schema_migrations`. The development schema and its CLI
+migration history must therefore be treated as potentially out of sync.
+
+Do **not** run `supabase db push`, `supabase migration repair`, or any production
+migration application until a separate review compares the local migration
+timestamps, the actual development schema, and the remote history table, then
+approves an explicit history strategy. Supabase documents that SQL Editor
+changes bypass migration history and may cause `db push` synchronization
+failures. It also documents that `migration repair` mutates tracking state
+without applying or reverting SQL.
+
+References:
+
+- [Supabase database migrations](https://supabase.com/docs/guides/deployment/database-migrations)
+- [Supabase CLI `db push`](https://supabase.com/docs/reference/cli/supabase-db-push)
 
 ## Confirmed schema comparison
 
@@ -15,31 +61,36 @@ and the existing NexaNotion website repository remained read-only.
   `anon`, and `authenticated` have no effective EXECUTE; `service_role` does.
 - Production has active-catalog RLS policies and update triggers on categories,
   products, and orders.
-- The separate development project has an empty `public` schema.
+- The separate development project started with an empty `public` schema. Its
+  verified post-migration metadata contains 18 tables, 4 views, 22 functions,
+  26 policies, 31 triggers, 79 indexes, and 103 constraints, with RLS enabled
+  on all 18 tables and zero sensitive-value signals.
 - Both retained metadata exports reported zero sensitive-value signals. Their
   CSV files remain locally ignored and must not be committed.
 
-## Development bootstrap and migration order
+## Verified development execution order
 
 The guarded storefront baseline is intentionally outside `supabase/migrations`.
 It is for the confirmed-empty development project only.
 
-1. Review `supabase/development-baseline/README.md`.
-2. In the development SQL Editor only, set the documented acknowledgement and
-   run `202607150000_storefront_public_schema.sql`.
-3. Re-run `docs/schema-audit/read-only-schema-inspection.sql` and verify that
-   the five-table contract matches the confirmed production structure.
-4. Run `202607140000_live_schema_preflight.sql` alone. Continue only when it
-   completes without a compatibility exception.
-5. Review and apply migrations `202607140001` through `202607140009` in numeric
-   order in development only.
-6. Create development Auth test users and bootstrap the first active `owner`
-   profile by UUID through a separately reviewed manual statement.
-7. Run the pgTAP tests under `supabase/tests/database` in development.
-8. Re-run the metadata inspection and compare grants, RLS, functions, triggers,
-   constraints, and indexes to the reviewed migration contract.
-9. Reconcile a controlled Delivered-order accounting fixture before configuring
-   the dashboard app to use development Supabase mode.
+1. Confirmed the development `public` schema was empty.
+2. Applied `202607150000_storefront_public_schema.sql` with its development-only
+   acknowledgement and verified the five-table storefront contract (8/8).
+3. Ran `202607140000_live_schema_preflight.sql` as a read-only compatibility
+   gate.
+4. Applied migrations `202607140001` through `202607140009` individually and in
+   numeric order through the development SQL Editor.
+5. Re-ran metadata inspection and the dashboard schema verifier (10/10).
+6. Created one development-only Auth user in the Supabase Dashboard and
+   bootstrapped the retained active `owner` profile. No owner email or password
+   is recorded in the repository.
+7. Enabled pgTAP 1.3.3 and ran the three corrected source suites through the SQL
+   Editor wrappers `202607160005` through `202607160007` (36/36).
+8. Ran the controlled accounting fixture through wrapper `202607160008`; all
+   financial, payment, inventory, snapshot, refund, and data-quality checks
+   passed inside a rollback-only transaction.
+9. Ran read-only cleanup verifier `202607160009`; all 18 persisted-record counts
+   were zero.
 
 Do not add the development baseline to production migration history. Production
 already has the five shared tables, so the baseline's existence guard rejects
@@ -154,9 +205,9 @@ dashboard order creation must not deduct or restore inventory.
   values before relying on a channel-filtered net-profit result.
 - Historical COGS, courier cost, and packaging cost need documented evidence.
   Unknown values remain unknown rather than being inferred from current data.
-- Production application remains blocked until development application, pgTAP,
-  accounting reconciliation, lock review, owner bootstrap review, and a fresh
-  production preflight all pass.
+- Production migration application remains blocked until the migration-history
+  strategy, development application integration, production lock window,
+  backup, and a fresh production preflight are separately reviewed and approved.
 
 ## Environment variables
 
@@ -168,3 +219,37 @@ Names only:
 
 `DASHBOARD_DATA_SOURCE=mock` is development/test only. A production build or
 runtime without required Supabase configuration must fail closed.
+
+## Rehearsal artifact validation
+
+The repository checks run before the rehearsal commit passed:
+
+- `npm run lint`;
+- `npm run typecheck`;
+- `npm test`: 6 files and 44 tests passed;
+- `npm run build`: Next.js production build passed;
+- SQL static validation: 28 files checked, 10 migration files present, five
+  rollback contracts passed, three corrected pgTAP suites verified, one
+  structured fixture result preserved, 18 cleanup counts preserved, and zero
+  stock mutations found;
+- committable-file secret scan: zero key, token, password, owner-email, or
+  environment-specific owner-UUID findings;
+- `git diff --check` passed;
+- `docs/schema-audit/outputs/` remained ignored and uncommitted.
+
+## Exact next application-connection prompt
+
+The following is the next authorized prompt after this rehearsal commit. It does
+not authorize any migration-history mutation or production work:
+
+> Connect the NexaNotion Business Dashboard application to the already-migrated
+> **NexaNotion Business Dashboard Dev** Supabase project only. Inspect the
+> current mock-data boundary and environment-variable contract first. Configure
+> development-only Supabase browser/server clients using environment values that
+> I enter locally, without printing or committing secrets. Verify the preserved
+> owner can sign in, protected routes fail closed, unauthenticated users cannot
+> access private data, and the application does not call inventory mutation.
+> Run lint, typecheck, unit/contract tests, production build, and focused browser
+> smoke tests. Do not run `supabase db push`, `supabase migration repair`, or any
+> migration; do not link or modify production; and do not modify the existing
+> NexaNotion website repository.
