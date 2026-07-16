@@ -1,4 +1,4 @@
-import type { DashboardUser } from "@/lib/auth/session";
+import type { DashboardUser } from "@/lib/auth/profile";
 
 export type DashboardPermission = "read" | "create" | "update" | "delete" | "manage_users" | "read_audit";
 

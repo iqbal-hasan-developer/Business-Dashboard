@@ -65,6 +65,10 @@ export function buildDashboardData(filters: DashboardFilters = {}): DashboardDat
   return aggregateDashboardData(
     { orders: mockOrders, products: mockProducts, expenses: mockExpenses },
     filters,
-    { referenceDate: "2026-07-14", cashBalance: parseMoney("48250") },
+    {
+      referenceDate: "2026-07-14",
+      cashBalance: parseMoney("48250"),
+      comparison: { hasPriorPeriodData: true, totalOrdersChangePercent: 12.5 },
+    },
   );
 }

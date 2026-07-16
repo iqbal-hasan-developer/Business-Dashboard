@@ -3,21 +3,37 @@ import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { updateSupabaseSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
-  if (resolveBusinessDataProvider() === "mock") return NextResponse.next();
-
-  const { response, user } = await updateSupabaseSession(request);
   const publicRoute = request.nextUrl.pathname === "/login";
+  try {
+    if (resolveBusinessDataProvider() === "mock") return NextResponse.next();
+  } catch {
+    if (publicRoute) return NextResponse.next();
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "";
+    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    login.searchParams.set("reason", "configuration");
+    return NextResponse.redirect(login);
+  }
+
+  let session;
+  try {
+    session = await updateSupabaseSession(request);
+  } catch {
+    if (publicRoute) return NextResponse.next();
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "";
+    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    login.searchParams.set("reason", "configuration");
+    return NextResponse.redirect(login);
+  }
+  const { response, user } = session;
   if (!user && !publicRoute) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(login);
-  }
-  if (user && publicRoute) {
-    const dashboard = request.nextUrl.clone();
-    dashboard.pathname = "/dashboard";
-    dashboard.search = "";
-    return NextResponse.redirect(dashboard);
   }
   return response;
 }

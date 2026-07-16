@@ -7,5 +7,5 @@ import { getBusinessRepository } from "@/data/provider";
 
 export default async function OrdersPage() {
   const orders = await (await getBusinessRepository()).getOrders();
-  return <><PageHeading title="Orders" description="Track order progress, payment state, and courier settlement separately." actions={<><Button variant="outline" size="sm"><Download /> Export</Button><Button size="sm" render={<Link href="/orders/new" />}><Plus /> New order</Button></>} /><OrdersTable orders={orders} /></>;
+  return <><PageHeading title="Orders" description="Track order progress, payment state, and courier settlement separately." actions={<><Button disabled variant="outline" size="sm"><Download /> Export not enabled</Button><Button size="sm" render={<Link href="/orders/new" />}><Plus /> New order</Button></>} /><OrdersTable orders={orders} /></>;
 }

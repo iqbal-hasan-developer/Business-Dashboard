@@ -122,8 +122,15 @@ export interface DashboardSummary {
   inventoryValue: Money;
 }
 
+export interface DashboardComparison {
+  hasPriorPeriodData: boolean;
+  totalOrdersChangePercent: number | null;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
+  comparison: DashboardComparison;
+  generatedAt?: string;
   trend: Array<{ date: string; revenue: Money; profit: Money }>;
   statusBreakdown: Array<{ status: OrderStatus; count: number }>;
   adSpendTrend: Array<{ date: string; revenue: Money; adSpend: Money }>;

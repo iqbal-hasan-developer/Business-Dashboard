@@ -5,8 +5,10 @@ import { mockRepository } from "@/data/repository";
 import { SupabaseBusinessRepository } from "@/data/supabase-repository";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireDashboardUser } from "@/lib/auth/session";
 
 export async function getBusinessRepository(): Promise<BusinessRepository> {
   if (resolveBusinessDataProvider() === "mock") return mockRepository;
+  await requireDashboardUser();
   return new SupabaseBusinessRepository(await createServerSupabaseClient());
 }

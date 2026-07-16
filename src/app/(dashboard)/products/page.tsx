@@ -6,5 +6,5 @@ import { getBusinessRepository } from "@/data/provider";
 
 export default async function ProductsPage() {
   const products = await (await getBusinessRepository()).getProducts();
-  return <><PageHeading title="Products" description="Manage pricing, stock position, reorder levels, and unit economics." actions={<><Button variant="outline" size="sm"><Download /> Export</Button><Button size="sm"><Plus /> Add product</Button></>} /><ProductsTable products={products} /></>;
+  return <><PageHeading title="Products" description="Review pricing, stock position, reorder levels, and unit economics." actions={<><Button disabled variant="outline" size="sm"><Download /> Export not enabled</Button><Button disabled size="sm"><Plus /> Add product not enabled</Button></>} /><ProductsTable products={products} /></>;
 }

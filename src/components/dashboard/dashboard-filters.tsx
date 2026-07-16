@@ -8,10 +8,25 @@ import { ORDER_STATUSES, SALES_CHANNELS } from "@/domain/types";
 
 const campaigns = ["all", "Always-on", "July Focus", "Journal Launch", "Planner Week", "Student Bundle"];
 
-export function DashboardFilters() {
+function formatUpdatedAt(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export function DashboardFilters({ updatedAt }: { updatedAt?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const current = useSearchParams();
+  const updatedAtLabel = formatUpdatedAt(updatedAt);
   function update(key: string, value: string) {
     const next = new URLSearchParams(current.toString());
     if (value === "all") next.delete(key); else next.set(key, value);
@@ -27,7 +42,7 @@ export function DashboardFilters() {
       <Select value={current.get("status") ?? "all"} onValueChange={(value) => update("status", value as string)}><SelectTrigger className={selectClass}><SelectValue>{current.get("status") ?? "All statuses"}</SelectValue></SelectTrigger><SelectContent><SelectGroup><SelectItem value="all">All statuses</SelectItem>{ORDER_STATUSES.map((value) => <SelectItem value={value} key={value}>{value}</SelectItem>)}</SelectGroup></SelectContent></Select>
       <Select value={current.get("campaign") ?? "all"} onValueChange={(value) => update("campaign", value as string)}><SelectTrigger className={selectClass}><SelectValue>{current.get("campaign") ?? "All campaigns"}</SelectValue></SelectTrigger><SelectContent><SelectGroup>{campaigns.map((value) => <SelectItem value={value} key={value}>{value === "all" ? "All campaigns" : value}</SelectItem>)}</SelectGroup></SelectContent></Select>
       {current.size > 0 && <Button variant="ghost" size="sm" onClick={() => router.replace(pathname)}><RotateCcw /> Reset</Button>}
-      <span className="ml-auto hidden text-xs text-muted-foreground xl:inline">Updated Jul 14, 2026 · 5:42 PM</span>
+      {updatedAtLabel ? <span className="ml-auto hidden text-xs text-muted-foreground xl:inline">Updated {updatedAtLabel}</span> : null}
     </div>
   );
 }

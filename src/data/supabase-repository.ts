@@ -100,7 +100,11 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       this.getOrders(), this.getProducts(), this.getExpenses(), this.getAdSpend(filters), this.getCashBalance(),
     ]);
     const referenceDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(new Date());
-    return aggregateDashboardData({ orders, products, expenses: [...expenses, ...adSpend] }, filters, { referenceDate, cashBalance });
+    return aggregateDashboardData(
+      { orders, products, expenses: [...expenses, ...adSpend] },
+      filters,
+      { referenceDate, cashBalance, generatedAt: new Date().toISOString() },
+    );
   }
 
   private async getAdSpend(filters: DashboardFilters): Promise<Expense[]> {

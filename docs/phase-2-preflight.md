@@ -214,11 +214,19 @@ dashboard order creation must not deduct or restore inventory.
 Names only:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `DASHBOARD_DATA_SOURCE`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_APP_URL`
+- `BUSINESS_DATA_PROVIDER`
 
-`DASHBOARD_DATA_SOURCE=mock` is development/test only. A production build or
-runtime without required Supabase configuration must fail closed.
+`BUSINESS_DATA_PROVIDER=supabase` is required for the development project
+connection. `BUSINESS_DATA_PROVIDER=mock` is an explicit isolated
+development/test fallback only and is rejected in production. A runtime without
+the complete Supabase configuration fails closed.
+
+The development-only values are held in ignored `.env.local`. No value, owner
+email, password, or privileged key is recorded in the repository. The dashboard
+uses the normal authenticated user session and RLS; no service-role client or
+fallback path exists in the application connection.
 
 ## Rehearsal artifact validation
 
@@ -237,19 +245,68 @@ The repository checks run before the rehearsal commit passed:
 - `git diff --check` passed;
 - `docs/schema-audit/outputs/` remained ignored and uncommitted.
 
-## Exact next application-connection prompt
+## Verified live development application connection
 
-The following is the next authorized prompt after this rehearsal commit. It does
-not authorize any migration-history mutation or production work:
+The application was connected only to **NexaNotion Business Dashboard Dev** on
+16 July 2026. The connection used the preserved development owner and the
+ignored `.env.local`; no credential value was printed, recorded, or committed.
 
-> Connect the NexaNotion Business Dashboard application to the already-migrated
-> **NexaNotion Business Dashboard Dev** Supabase project only. Inspect the
-> current mock-data boundary and environment-variable contract first. Configure
-> development-only Supabase browser/server clients using environment values that
-> I enter locally, without printing or committing secrets. Verify the preserved
-> owner can sign in, protected routes fail closed, unauthenticated users cannot
-> access private data, and the application does not call inventory mutation.
-> Run lint, typecheck, unit/contract tests, production build, and focused browser
-> smoke tests. Do not run `supabase db push`, `supabase migration repair`, or any
-> migration; do not link or modify production; and do not modify the existing
-> NexaNotion website repository.
+Verified results:
+
+- owner authentication, active-profile and `owner` role resolution, protected
+  routes, refresh persistence, sign out, post-sign-out denial, and owner sign-in
+  again all passed;
+- anonymous private-table requests returned HTTP 401;
+- desktop (1440 x 900) and Pixel 7 (412 x 915) layouts passed;
+- the account menu opened with keyboard and pointer input, exposed the owner name,
+  role, and accessible Sign out action, and produced no Base UI, console, page,
+  or warning errors;
+- all 14 connected empty-dashboard metrics rendered truthful zero states, with
+  no prototype trend metadata, false pending-order urgency, or stale hard-coded
+  timestamp; the displayed update time came from the server query;
+- inventory RPC traffic, stock mutation, and all product/business mutation
+  traffic remained zero; and
+- no SQL, migration, database change, production access, persistent test data,
+  or NexaNotion website change occurred.
+
+Connected-mode write controls remain disabled anywhere persistence has not been
+implemented. New-order creation, product creation/editing, order editing,
+marketing, expense, settlement, settings, export, and other mutation-oriented
+controls must remain unavailable until their authenticated, audited, RLS-backed
+write paths are implemented and separately accepted. Dashboard code must not
+call `decrement_product_stock` or alter product stock.
+
+### Remaining authoritative-reporting gap
+
+The live empty/read-only connection is verified, but it is not yet real
+business-data acceptance. The connected repository still loads selected base
+rows and performs part of the dashboard aggregation in application code. It
+does not yet fully consume the authoritative snapshot-backed reporting RPC and
+views created by migrations `202607140004` and `202607140009`.
+
+Before real business-data acceptance, the connected dashboard must use the
+role-gated filtered financial summary and the snapshot-backed financial and
+reconciliation views as the source of reported revenue, COGS, gross profit, net
+profit, margin, AOV, refund adjustments, and reconciliation status. The
+integration must preserve the normal user JWT and RLS, keep unknown historical
+costs unknown, reconcile summary and detail results, and introduce no inventory
+or other business-data mutation.
+
+## Exact next authoritative-reporting integration prompt
+
+The following is the recommended next prompt after the live development
+connection commit. It does not authorize database, migration-history, production,
+inventory, or website changes:
+
+> Integrate the NexaNotion Business Dashboard's connected financial reporting
+> with the authoritative snapshot-backed reporting RPC and views already present
+> in **NexaNotion Business Dashboard Dev**. First inspect their committed SQL
+> contracts and the current `SupabaseBusinessRepository`. Use only server-side
+> queries with the normal authenticated owner JWT and RLS. Make the filtered
+> summary, financial detail, and reconciliation surfaces consume the authoritative
+> reporting sources; preserve correct unknown-cost behavior and truthful empty
+> states; and add unit, contract, and focused browser coverage that reconciles
+> summary and detail results. Keep all unimplemented write controls disabled. Do
+> not run SQL, migrations, `db push`, migration repair, or reset; do not create
+> business data, call inventory RPCs, alter stock, connect production, expose
+> environment values, commit or push, or modify the NexaNotion website repository.

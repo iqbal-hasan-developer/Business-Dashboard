@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardCheck,
-  LayoutDashboard, Megaphone, PackagePlus, Plus, ReceiptText, Search,
+  LayoutDashboard, LogOut, Megaphone, PackagePlus, Plus, ReceiptText, Search,
   Settings, ShoppingBag, SlidersHorizontal, Sparkles, WalletCards,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,6 +23,8 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton,
   SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { signOut } from "@/app/login/actions";
+import type { DashboardUser } from "@/lib/auth/profile";
 
 const primaryNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -93,8 +95,8 @@ function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="rounded-lg bg-sidebar-accent/65 p-3 group-data-[collapsible=icon]:hidden">
-          <p className="text-xs font-medium text-white">Phase 1 prototype</p>
-          <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/55">Mock data only · No production connection</p>
+          <p className="text-xs font-medium text-white">Development workspace</p>
+          <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/55">Private data via authenticated RLS</p>
         </div>
       </SidebarFooter>
     </Sidebar>
@@ -123,7 +125,11 @@ function PageBreadcrumbs({ pathname }: { pathname: string }) {
   );
 }
 
-function TopBar() {
+function userInitials(user: DashboardUser) {
+  return user.displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "DU";
+}
+
+function TopBar({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 text-white backdrop-blur md:border-border md:bg-white/95 md:px-6 md:text-foreground">
@@ -142,8 +148,8 @@ function TopBar() {
           <Plus className="size-4" /> Add new <ChevronDown className="size-3.5 opacity-70" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>Create record</DropdownMenuLabel>
           <DropdownMenuGroup>
+            <DropdownMenuLabel>Create record</DropdownMenuLabel>
             <DropdownMenuItem render={<Link href="/orders/new" />}><ShoppingBag /> New order</DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/products" />}><PackagePlus /> New product</DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/expenses" />}><CircleDollarSign /> New expense</DropdownMenuItem>
@@ -154,13 +160,21 @@ function TopBar() {
         <Bell className="size-4" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-coral-500 bg-red-500" />
       </Button>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" className="h-9 gap-2 px-1.5" />}>
-          <Avatar size="sm"><AvatarFallback className="bg-blue-100 font-semibold text-blue-700">NI</AvatarFallback></Avatar>
-          <span className="hidden text-left text-xs md:block"><span className="block font-medium">NexaNotion</span><span className="text-muted-foreground">Admin</span></span>
+        <DropdownMenuTrigger render={<Button variant="ghost" className="h-9 gap-2 px-1.5" aria-label={`Account menu for ${user.displayName}, ${user.role.replace("_", " ")}`} />}>
+          <Avatar size="sm"><AvatarFallback className="bg-blue-100 font-semibold text-blue-700">{userInitials(user)}</AvatarFallback></Avatar>
+          <span className="hidden max-w-40 text-left text-xs md:block"><span className="block truncate font-medium">{user.displayName}</span><span className="capitalize text-muted-foreground">{user.role.replace("_", " ")}</span></span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Workspace admin</DropdownMenuLabel><DropdownMenuSeparator />
-          <DropdownMenuItem render={<Link href="/settings" />}><SlidersHorizontal /> Settings</DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="truncate">{user.displayName}</DropdownMenuLabel>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem render={<Link href="/settings" />}><SlidersHorizontal /> Settings</DropdownMenuItem>
+            <form action={signOut}>
+              <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}><LogOut /> Sign out</DropdownMenuItem>
+            </form>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
@@ -183,12 +197,12 @@ function MobileNav() {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user: DashboardUser }) {
   return (
     <SidebarProvider defaultOpen style={{ "--sidebar-width": "14.5rem" } as React.CSSProperties}>
       <AppSidebar />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar />
+        <TopBar user={user} />
         <main className="min-w-0 flex-1 px-4 py-5 pb-24 md:px-6 md:py-6 md:pb-8 xl:px-8">{children}</main>
       </SidebarInset>
       <MobileNav />

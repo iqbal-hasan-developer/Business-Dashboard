@@ -1,5 +1,5 @@
 import { calculateInventoryValue, calculateOrderFinancials } from "@/domain/calculations";
-import type { DashboardData, DashboardFilters, Expense, Money, Order, Product } from "@/domain/types";
+import type { DashboardComparison, DashboardData, DashboardFilters, Expense, Money, Order, Product } from "@/domain/types";
 
 type DashboardSource = {
   orders: Order[];
@@ -10,6 +10,8 @@ type DashboardSource = {
 type DashboardOptions = {
   referenceDate: string;
   cashBalance?: Money;
+  comparison?: DashboardComparison;
+  generatedAt?: string;
 };
 
 function reportingStart(referenceDate: string, range = "14d") {
@@ -22,6 +24,23 @@ function reportingStart(referenceDate: string, range = "14d") {
 
 function inReportingRange(date: string, filters: DashboardFilters, referenceDate: string) {
   return date >= reportingStart(referenceDate, filters.range) && date <= referenceDate;
+}
+
+function previousReportingRange(referenceDate: string, range?: string) {
+  const currentStart = new Date(`${reportingStart(referenceDate, range)}T00:00:00Z`);
+  const currentEnd = new Date(`${referenceDate}T00:00:00Z`);
+  const durationDays = Math.round((currentEnd.getTime() - currentStart.getTime()) / 86_400_000) + 1;
+  const previousEnd = new Date(currentStart);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 1);
+  const previousStart = new Date(previousEnd);
+  previousStart.setUTCDate(previousStart.getUTCDate() - durationDays + 1);
+  return { start: previousStart.toISOString().slice(0, 10), end: previousEnd.toISOString().slice(0, 10) };
+}
+
+function matchesDimensions(order: Order, filters: DashboardFilters) {
+  return (!filters.channel || filters.channel === "all" || order.channel === filters.channel) &&
+    (!filters.status || filters.status === "all" || order.status === filters.status) &&
+    (!filters.campaign || filters.campaign === "all" || order.campaign === filters.campaign);
 }
 
 function reportDays(referenceDate: string) {
@@ -41,10 +60,10 @@ export function aggregateDashboardData(
   options: DashboardOptions,
 ): DashboardData {
   const orders = source.orders.filter((order) =>
-    inReportingRange(order.orderDate, filters, options.referenceDate) &&
-    (!filters.channel || filters.channel === "all" || order.channel === filters.channel) &&
-    (!filters.status || filters.status === "all" || order.status === filters.status) &&
-    (!filters.campaign || filters.campaign === "all" || order.campaign === filters.campaign));
+    inReportingRange(order.orderDate, filters, options.referenceDate) && matchesDimensions(order, filters));
+  const previousRange = previousReportingRange(options.referenceDate, filters.range);
+  const previousOrders = source.orders.filter((order) =>
+    order.orderDate >= previousRange.start && order.orderDate <= previousRange.end && matchesDimensions(order, filters));
   const expenses = source.expenses.filter((expense) => inReportingRange(expense.date, filters, options.referenceDate));
   const delivered = orders.filter((order) => order.status === "Delivered");
   const financials = orders.map(calculateOrderFinancials);
@@ -75,6 +94,13 @@ export function aggregateDashboardData(
   const lowStock = source.products.filter((product) => product.stock <= product.reorderLevel);
   const unsettledDelivered = delivered.filter((order) => order.settlementStatus !== "Settled");
 
+  const comparison = options.comparison ?? {
+    hasPriorPeriodData: previousOrders.length > 0,
+    totalOrdersChangePercent: previousOrders.length > 0
+      ? ((orders.length - previousOrders.length) / previousOrders.length) * 100
+      : null,
+  };
+
   return {
     summary: {
       totalOrders: orders.length,
@@ -93,6 +119,8 @@ export function aggregateDashboardData(
         .reduce((sum, order) => sum + calculateOrderFinancials(order).orderTotal, 0),
       inventoryValue: calculateInventoryValue(source.products),
     },
+    comparison,
+    generatedAt: options.generatedAt,
     trend,
     statusBreakdown: ["Pending", "Confirmed", "Dispatched", "Delivered", "Cancelled", "Returned", "Refunded", "Failed Delivery"]
       .map((status) => ({ status: status as Order["status"], count: orders.filter((order) => order.status === status).length }))
