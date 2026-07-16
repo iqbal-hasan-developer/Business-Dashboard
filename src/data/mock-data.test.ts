@@ -71,7 +71,7 @@ describe("dashboard Delivered-only recognition", () => {
     expect(data.summary.grossProfit).toBe(expected.netRevenue - expected.cogs);
     expect(data.summary.averageOrderValue).toBe(Math.round(expected.netRevenue / expected.deliveredCount));
     expect(data.summary.netProfit).toBe(expected.contribution - periodExpenses);
-    expect(data.summary.profitMargin).toBe(data.summary.netProfit / expected.netRevenue);
+    expect(data.summary.profitMargin).toBe((data.summary.netProfit ?? 0) / expected.netRevenue);
   });
 
   it.each([

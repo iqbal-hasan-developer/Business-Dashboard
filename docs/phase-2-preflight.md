@@ -276,37 +276,33 @@ controls must remain unavailable until their authenticated, audited, RLS-backed
 write paths are implemented and separately accepted. Dashboard code must not
 call `decrement_product_stock` or alter product stock.
 
-### Remaining authoritative-reporting gap
+## Verified authoritative-reporting integration
 
-The live empty/read-only connection is verified, but it is not yet real
-business-data acceptance. The connected repository still loads selected base
-rows and performs part of the dashboard aggregation in application code. It
-does not yet fully consume the authoritative snapshot-backed reporting RPC and
-views created by migrations `202607140004` and `202607140009`.
+The connected repository now consumes the role-gated
+`get_dashboard_financial_summary` RPC and the snapshot-backed
+`dashboard_order_financials`, `dashboard_daily_financials`,
+`dashboard_reconciliation`, and `dashboard_data_quality_checks` views. Revenue,
+COGS, contribution, operating cost, profit, margin and AOV no longer come from
+mutable base-row calculations in connected mode. Append-only refund adjustments
+flow through the installed reporting contract; unknown historical costs remain
+`NULL` through repository, domain and UI layers.
 
-Before real business-data acceptance, the connected dashboard must use the
-role-gated filtered financial summary and the snapshot-backed financial and
-reconciliation views as the source of reported revenue, COGS, gross profit, net
-profit, margin, AOV, refund adjustments, and reconciliation status. The
-integration must preserve the normal user JWT and RLS, keep unknown historical
-costs unknown, reconcile summary and detail results, and introduce no inventory
-or other business-data mutation.
+The live empty-development verification passed with 16 truthful KPI states,
+including Contribution Profit and Operating Expenses. Filtered summary/detail
+and global RPC/view reconciliation passed, non-Delivered filters did not receive
+recognized accounting, and the reports and data-checks surfaces accepted the
+strict response contracts. Desktop and Pixel 7 passed with zero console/page
+errors, and six anonymous private reporting requests returned HTTP 401. Inventory
+RPC and business-data mutation traffic remained zero.
 
-## Exact next authoritative-reporting integration prompt
+Exact response contracts, filter/NULL semantics and the KPI/chart source map are
+recorded in `docs/authoritative-reporting-contract.md`.
 
-The following is the recommended next prompt after the live development
-connection commit. It does not authorize database, migration-history, production,
-inventory, or website changes:
+### Remaining product-level reporting gap
 
-> Integrate the NexaNotion Business Dashboard's connected financial reporting
-> with the authoritative snapshot-backed reporting RPC and views already present
-> in **NexaNotion Business Dashboard Dev**. First inspect their committed SQL
-> contracts and the current `SupabaseBusinessRepository`. Use only server-side
-> queries with the normal authenticated owner JWT and RLS. Make the filtered
-> summary, financial detail, and reconciliation surfaces consume the authoritative
-> reporting sources; preserve correct unknown-cost behavior and truthful empty
-> states; and add unit, contract, and focused browser coverage that reconciles
-> summary and detail results. Keep all unimplemented write controls disabled. Do
-> not run SQL, migrations, `db push`, migration repair, or reset; do not create
-> business data, call inventory RPCs, alter stock, connect production, expose
-> environment values, commit or push, or modify the NexaNotion website repository.
+Migration `202607140009` does not expose an immutable product-level recognition
+allocation. Consequently, connected Top Products revenue cannot be derived
+without using mutable order items or inventing a refund-allocation rule. That
+panel remains explicitly unavailable and fails closed. A separately reviewed,
+versioned database contract is required before product-level reporting or real
+business-data acceptance can be complete.

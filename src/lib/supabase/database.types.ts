@@ -83,6 +83,12 @@ export type ExpenseRow = {
   category_key: string;
   description: string;
   amount: number;
+  payment_method: string | null;
+  campaign_id: string | null;
+  sales_channel: string | null;
+  reference: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -140,16 +146,64 @@ export type Database = {
         created_at: string;
         updated_at: string;
       }>;
+      order_financial_snapshots: Table<{
+        order_id: string;
+        order_number_snapshot: string;
+        order_date: string;
+        sales_channel: string;
+        campaign_id: string | null;
+        campaign_name_snapshot: string | null;
+        payment_method: string;
+        settlement_status: string;
+        recognition_status: "Delivered";
+        product_revenue: number;
+        delivery_revenue: number;
+        discount_amount: number;
+        refund_amount: number;
+        net_revenue: number;
+        cogs: number | null;
+        cogs_complete: boolean;
+        courier_cost: number | null;
+        packaging_cost: number | null;
+        recognized_at: string;
+        recognition_source: "website" | "dashboard" | "approved_backfill";
+        recognized_by: string | null;
+        snapshot_version: number;
+        created_at: string;
+      }>;
+      order_financial_adjustments: Table<{
+        id: string;
+        order_id: string;
+        adjustment_type: "refund";
+        amount_delta: number;
+        occurred_on: string;
+        occurred_at: string;
+        adjustment_source: "website" | "dashboard" | "approved_backfill";
+        created_by: string | null;
+        created_at: string;
+      }>;
     };
     Views: {
       dashboard_order_financials: {
         Row: {
-          order_id: string | null;
-          order_number: string | null;
-          is_delivered: boolean | null;
-          cogs_complete: boolean | null;
-          recognized_product_revenue: number | null;
-          net_revenue: number | null;
+          order_id: string;
+          order_number: string;
+          order_date: string;
+          sales_channel: string;
+          campaign_id: string | null;
+          campaign_name_snapshot: string | null;
+          payment_method: string;
+          settlement_status: string;
+          recognized_at: string;
+          recognition_source: string;
+          is_delivered: true;
+          cogs_complete: boolean;
+          fulfillment_costs_complete: boolean;
+          recognized_product_revenue: number;
+          recognized_delivery_revenue: number;
+          recognized_discount_amount: number;
+          recognized_refund_amount: number;
+          net_revenue: number;
           recognized_cogs: number | null;
           gross_profit: number | null;
           contribution_profit: number | null;
@@ -158,11 +212,51 @@ export type Database = {
       };
       dashboard_reconciliation: {
         Row: {
-          delivered_order_count: number | null;
-          product_revenue: number | null;
-          net_revenue: number | null;
+          delivered_order_count: number;
+          delivered_orders_missing_cogs: number;
+          delivered_orders_missing_fulfillment_costs: number;
+          product_revenue: number;
+          net_revenue: number;
           cogs: number | null;
           gross_profit: number | null;
+          contribution_profit: number | null;
+          average_order_value: number;
+          ad_spend: number;
+          expenses: number;
+          net_profit: number | null;
+          profit_margin: number | null;
+        };
+        Relationships: [];
+      };
+      dashboard_daily_financials: {
+        Row: {
+          business_date: string;
+          delivered_order_count: number;
+          delivered_orders_missing_cogs: number;
+          delivered_orders_missing_fulfillment_costs: number;
+          product_revenue: number;
+          net_revenue: number;
+          cogs: number | null;
+          gross_profit: number | null;
+          contribution_profit: number | null;
+          average_order_value: number;
+          expenses: number;
+          ad_spend: number;
+          net_profit: number | null;
+          profit_margin: number | null;
+        };
+        Relationships: [];
+      };
+      dashboard_data_quality_checks: {
+        Row: {
+          order_items_with_missing_links: number;
+          duplicate_order_numbers: number;
+          products_with_missing_sku: number;
+          duplicate_product_skus: number;
+          delivered_orders_without_items: number;
+          delivered_orders_missing_financial_snapshot: number;
+          snapshot_product_revenue_mismatches: number;
+          snapshot_cogs_mismatches: number;
         };
         Relationships: [];
       };
@@ -171,6 +265,29 @@ export type Database = {
       create_dashboard_order: {
         Args: { p_order: Json; p_items: Json };
         Returns: string;
+      };
+      get_dashboard_financial_summary: {
+        Args: {
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+          p_sales_channel?: string | null;
+          p_campaign_id?: string | null;
+        };
+        Returns: Array<{
+          delivered_order_count: number;
+          delivered_orders_missing_cogs: number;
+          delivered_orders_missing_fulfillment_costs: number;
+          product_revenue: number;
+          net_revenue: number;
+          cogs: number | null;
+          gross_profit: number | null;
+          contribution_profit: number | null;
+          average_order_value: number;
+          ad_spend: number;
+          expenses: number;
+          net_profit: number | null;
+          profit_margin: number | null;
+        }>;
       };
     };
     Enums: Record<string, never>;

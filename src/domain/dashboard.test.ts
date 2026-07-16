@@ -18,6 +18,8 @@ describe("empty dashboard aggregation", () => {
       netRevenue: 0,
       cogs: 0,
       grossProfit: 0,
+      contributionProfit: 0,
+      operatingExpenses: 0,
       netProfit: 0,
       profitMargin: 0,
       adSpend: 0,

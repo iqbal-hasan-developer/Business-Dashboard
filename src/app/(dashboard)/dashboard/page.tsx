@@ -10,5 +10,5 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
   const repository = await getBusinessRepository();
   const data = await repository.getDashboard({ range: value("range"), channel: value("channel"), status: value("status"), campaign: value("campaign") });
-  return <><PageHeading title="Business overview" description="See what is selling, what is settled, and where profit needs attention." /><DashboardFilters updatedAt={data.generatedAt} /><KpiGrid data={data.summary} comparison={data.comparison} /><DashboardChartsLazy data={data} /><DashboardBottom data={data} /></>;
+  return <><PageHeading title="Business overview" description="See what is selling, what is settled, and where profit needs attention." /><DashboardFilters updatedAt={data.generatedAt} campaigns={data.campaigns} /><KpiGrid data={data.summary} comparison={data.comparison} reporting={data.reporting} /><DashboardChartsLazy data={data} /><DashboardBottom data={data} /></>;
 }

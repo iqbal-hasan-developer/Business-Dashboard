@@ -18,12 +18,14 @@ const loginAction = readFileSync(join(process.cwd(), "src", "app", "login", "act
 const appRoutes = runtimeSource(join(process.cwd(), "src", "app"));
 const dashboardFilters = readFileSync(join(process.cwd(), "src", "components", "dashboard", "dashboard-filters.tsx"), "utf8");
 const kpiGrid = readFileSync(join(process.cwd(), "src", "components", "dashboard", "kpi-grid.tsx"), "utf8");
+const supabaseRepository = readFileSync(join(process.cwd(), "src", "data", "supabase-repository.ts"), "utf8");
 
 describe("development Supabase connection contracts", () => {
   it("contains no privileged credential or inventory-mutation path", () => {
     expect(source).not.toMatch(/service.?role/i);
     expect(source).not.toContain("decrement_product_stock");
-    expect(source).not.toMatch(/\.rpc\s*\(/);
+    const rpcNames = [...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]);
+    expect(rpcNames).toEqual(["get_dashboard_financial_summary"]);
     expect(source).not.toMatch(/\.update\s*\([^)]*stock/i);
   });
 
@@ -45,5 +47,15 @@ describe("development Supabase connection contracts", () => {
     expect(kpiGrid).not.toContain("+12.5%");
     expect(dashboardFilters).not.toContain("Updated Jul 14, 2026");
     expect(dashboardFilters).toContain("updatedAtLabel");
+  });
+
+  it("uses installed reporting contracts instead of mutable base-row financial aggregation", () => {
+    expect(supabaseRepository).not.toContain("aggregateDashboardData");
+    expect(supabaseRepository).not.toContain("calculateOrderFinancials");
+    expect(supabaseRepository).toContain('.rpc("get_dashboard_financial_summary"');
+    expect(supabaseRepository).toContain('.from("dashboard_order_financials")');
+    expect(supabaseRepository).toContain('.from("dashboard_daily_financials")');
+    expect(supabaseRepository).toContain('.from("dashboard_reconciliation")');
+    expect(supabaseRepository).toContain('.from("dashboard_data_quality_checks")');
   });
 });

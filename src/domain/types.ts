@@ -109,14 +109,16 @@ export interface DashboardSummary {
   totalOrders: number;
   deliveredOrders: number;
   pendingOrders: number;
-  productRevenue: Money;
-  netRevenue: Money;
-  cogs: Money;
-  grossProfit: Money;
-  netProfit: Money;
-  profitMargin: number;
+  productRevenue: Money | null;
+  netRevenue: Money | null;
+  cogs: Money | null;
+  grossProfit: Money | null;
+  contributionProfit: Money | null;
+  operatingExpenses: Money;
+  netProfit: Money | null;
+  profitMargin: number | null;
   adSpend: Money;
-  averageOrderValue: Money;
+  averageOrderValue: Money | null;
   cashBalance: Money;
   codReceivable: Money;
   inventoryValue: Money;
@@ -127,15 +129,53 @@ export interface DashboardComparison {
   totalOrdersChangePercent: number | null;
 }
 
+export type DashboardFinancialState = "available" | "incomplete" | "not-applicable";
+
+export interface DashboardDataQuality {
+  orderItemsWithMissingLinks: number;
+  duplicateOrderNumbers: number;
+  productsWithMissingSku: number;
+  duplicateProductSkus: number;
+  deliveredOrdersWithoutItems: number;
+  deliveredOrdersMissingFinancialSnapshot: number;
+  snapshotProductRevenueMismatches: number;
+  snapshotCogsMismatches: number;
+}
+
+export interface DashboardReportingStatus {
+  financialState: DashboardFinancialState;
+  financialMessage: string;
+  deliveredOrdersMissingCogs: number;
+  deliveredOrdersMissingFulfillmentCosts: number;
+  recognizedRefundAmount: Money;
+  summaryMatchesOrderDetails: boolean;
+  globalReconciliationMatches: boolean;
+  dataQualityAllZero: boolean;
+  topProductsAvailable: boolean;
+  sources: {
+    financialSummary: "get_dashboard_financial_summary" | "mock";
+    orderFinancials: "dashboard_order_financials" | "mock";
+    dailyFinancials: "dashboard_daily_financials" | "dashboard_order_financials" | "mock";
+    reconciliation: "dashboard_reconciliation" | "mock";
+    dataQuality: "dashboard_data_quality_checks" | "mock";
+    cashBalance: "cash_movements" | "mock";
+    codReceivable: "dashboard_order_financials" | "mock";
+    inventoryValue: "products + product_business_data" | "mock";
+  };
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   comparison: DashboardComparison;
   generatedAt?: string;
-  trend: Array<{ date: string; revenue: Money; profit: Money }>;
+  trend: Array<{ date: string; revenue: Money | null; profit: Money | null }>;
   statusBreakdown: Array<{ status: OrderStatus; count: number }>;
-  adSpendTrend: Array<{ date: string; revenue: Money; adSpend: Money }>;
+  adSpendTrend: Array<{ date: string; revenue: Money | null; adSpend: Money }>;
   topProducts: Array<{ name: string; revenue: Money }>;
   expenseBreakdown: Array<{ category: string; amount: Money }>;
   recentOrders: Order[];
   warnings: Array<{ id: string; tone: "warning" | "danger"; title: string; detail: string }>;
+  campaigns: string[];
+  dataQuality: DashboardDataQuality;
+  reporting: DashboardReportingStatus;
 }

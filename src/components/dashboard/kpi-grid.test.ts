@@ -12,7 +12,7 @@ describe("dashboard KPI truthfulness", () => {
       {},
       { referenceDate: "2026-07-16", cashBalance: 0 },
     );
-    const markup = renderToStaticMarkup(createElement(KpiGrid, { data: data.summary, comparison: data.comparison }));
+    const markup = renderToStaticMarkup(createElement(KpiGrid, { data: data.summary, comparison: data.comparison, reporting: data.reporting }));
 
     expect(markup).toContain("No prior-period data");
     expect(markup).toContain("No pending orders");
@@ -23,7 +23,7 @@ describe("dashboard KPI truthfulness", () => {
 
   it("preserves the explicit mock-mode prototype comparison", () => {
     const data = buildDashboardData();
-    const markup = renderToStaticMarkup(createElement(KpiGrid, { data: data.summary, comparison: data.comparison }));
+    const markup = renderToStaticMarkup(createElement(KpiGrid, { data: data.summary, comparison: data.comparison, reporting: data.reporting }));
 
     expect(markup).toContain("+12.5%");
   });
