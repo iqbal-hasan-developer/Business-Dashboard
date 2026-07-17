@@ -37,13 +37,25 @@ automatically establish matching history in
 `supabase_migrations.schema_migrations`. The development schema and its CLI
 migration history must therefore be treated as potentially out of sync.
 
-Do **not** run `supabase db push`, `supabase migration repair`, or any production
-migration application until a separate review compares the local migration
-timestamps, the actual development schema, and the remote history table, then
-approves an explicit history strategy. Supabase documents that SQL Editor
-changes bypass migration history and may cause `db push` synchronization
-failures. It also documents that `migration repair` mutates tracking state
-without applying or reverting SQL.
+### Final development history alignment - verified 18 July 2026
+
+The separately approved Stage B procedure initialized the development migration
+history with Supabase CLI `2.106.0`, one timestamp at a time. The final read-only
+audit confirmed migrations `202607140000` through `202607140009` are recorded
+with their correct canonical names, all ten schema-contract checks pass, no
+expected timestamp is missing, no unexpected timestamp exists, and
+`history_aligned = true`.
+
+The development-only storefront baseline `202607150000` remains intentionally
+unrecorded. Product-financial-allocation timestamp `202607170000` is also
+unrecorded and its objects remain absent. This alignment does not authorize
+application of `202607170000`, production access, or migration repair.
+
+Do **not** run `supabase db push`, any later `supabase migration repair`, or any
+production migration application without a new explicit approval. Supabase
+documents that SQL Editor changes bypass migration history and may cause
+`db push` synchronization failures. It also documents that `migration repair`
+mutates tracking state without applying or reverting SQL.
 
 References:
 
@@ -306,3 +318,17 @@ without using mutable order items or inventing a refund-allocation rule. That
 panel remains explicitly unavailable and fails closed. A separately reviewed,
 versioned database contract is required before product-level reporting or real
 business-data acceptance can be complete.
+
+The reviewed contract has now been promoted to the unapplied canonical candidate
+`202607170000_product_financial_recognition_allocations.sql`. Its development
+preflight, post-application ACL/RLS verifier, pgTAP wrapper, rollback fixture,
+and cleanup verifier are prepared outside canonical migration history. Top
+Products remains unavailable until that candidate passes the separately approved
+development rehearsal and the application contract is connected in a later task.
+
+The application rehearsal must use the normal linked CLI migration workflow:
+first a dry run showing only `202607170000`, then a separately approved
+`supabase db push --linked`, followed immediately by `supabase migration list
+--linked`. A successful push applies the canonical migration and records its
+timestamp through the supported workflow. Do not paste the canonical migration
+into SQL Editor or recreate a migration-history mismatch.

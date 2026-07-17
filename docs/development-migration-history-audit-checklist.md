@@ -1,8 +1,8 @@
 # Development migration-history audit operator checklist
 
-Status: read-only Stage A evidence collection. This checklist does not approve
-migration repair, schema changes, SQL application, production access, or the
-product-financial-allocation proposal.
+Status: completed Stage A/Stage B evidence record. This checklist does not
+approve schema changes, later migration repair, SQL application, production
+access, or the product-financial-allocation migration.
 
 Audit file:
 `supabase/development-rehearsal/202607170002_read_only_migration_history_audit.sql`
@@ -56,6 +56,34 @@ This result authorizes planning only. It does not authorize linking, login,
 repair, SQL execution, table creation, production contact, or any product
 allocation change. The separately prepared Stage B checklist remains subject to
 explicit execution approval.
+
+## Confirmed final Stage B result - 18 July 2026
+
+Stage B was completed only against the project whose visible breadcrumb was
+confirmed as **NexaNotion Business Dashboard Dev**. Supabase CLI `2.106.0`
+recorded canonical timestamps `202607140000` through `202607140009` as applied,
+one timestamp at a time, without executing their migration SQL. A read-only
+`migration list` followed every repair.
+
+The final metadata audit confirmed:
+
+| Field | Confirmed result |
+| --- | ---: |
+| `metadata_audit_allowed` | `true` |
+| `stop_required` | `false` |
+| `recorded_expected_count` | `10` |
+| `missing_expected_count` | `0` |
+| `unexpected_history_count` | `0` |
+| `schema_contract_check_count` | `10` |
+| `passed_schema_contract_count` | `10` |
+| `history_aligned` | `true` |
+| `product_allocation_proposal_present` | `false` |
+
+Every recorded name matched its canonical filename stem. Development baseline
+`202607150000` and product-allocation timestamp `202607170000` remained absent
+from migration history. No production project was contacted, no migration SQL
+was executed, and no migration-history repair remains pending for the ten
+`202607140000`-`202607140009` entries.
 
 ## Mandatory project gate
 

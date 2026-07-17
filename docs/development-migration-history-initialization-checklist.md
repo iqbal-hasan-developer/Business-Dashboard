@@ -1,12 +1,32 @@
 # Development migration-history initialization operator checklist
 
-Status: prepared Stage B procedure only. Do not execute any command in this
-document until the user explicitly approves Stage B execution.
+Status: Stage B completed on 18 July 2026. Commands retained below are the
+historical reviewed procedure and are not reusable authorization for any later
+migration repair.
 
 Target: **NexaNotion Business Dashboard Dev** only.
 
 Starting Git checkpoint:
 `edf59f6dea8304da0a41372c65bda7f12596f3b7`.
+
+## Completion record - 18 July 2026
+
+Stage B was separately approved and completed against **NexaNotion Business
+Dashboard Dev** with Supabase CLI `2.106.0`. The first entry was initialized and
+audited before the remaining nine entries were recorded individually. Every
+repair returned exit code `0`; every following read-only migration list showed
+exactly one additional expected timestamp and no Remote-only entry.
+
+The final read-only audit reported ten expected and ten recorded migrations,
+zero missing, zero unexpected, ten of ten passing schema-contract checks, and
+`history_aligned = true`. Every recorded name matched its canonical filename.
+The development baseline `202607150000` and product-allocation proposal
+`202607170000` were not recorded. No migration SQL, `db push`, `db reset`,
+production operation, inventory action, manual history-table SQL, commit, or
+push occurred during Stage B.
+
+This completion record closes only the `202607140000`-`202607140009` history
+initialization. It does not authorize applying or recording any later migration.
 
 ## Confirmed Stage A interpretation
 

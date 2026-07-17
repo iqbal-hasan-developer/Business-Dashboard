@@ -1,8 +1,20 @@
 # Immutable product financial recognition and return-accounting review
 
-Status: review-only development proposal. Nothing in this document authorizes SQL execution, Supabase contact, production changes, migration-history repair, inventory mutation, or a canonical migration.
+Status: approved review contract. A canonical development-rehearsal candidate
+was prepared on 18 July 2026, but nothing in this document authorizes SQL
+execution, Supabase contact, production changes, migration-history repair, or
+inventory mutation.
 
 Starting review baseline: commit `1d742f3298deb5855e2adbc55e66f6ea76d50055`.
+
+Promotion target:
+`supabase/migrations/202607170000_product_financial_recognition_allocations.sql`.
+The candidate removes the development acknowledgement setting, adds transaction
+timeouts, and fails closed on existing/partial recognition history. It remains
+unapplied and unrecorded pending a separately approved linked CLI rehearsal.
+Application must use `supabase db push --dry-run --linked`, a separate approval,
+and then `supabase db push --linked`; the canonical file must not be pasted into
+SQL Editor.
 
 ## Decision
 

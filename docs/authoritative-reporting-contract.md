@@ -146,6 +146,17 @@ falling back to mutable `order_items` or inventing a refund-allocation rule. The
 connected panel fails closed as unavailable. A future reviewed migration must add
 an immutable product-level recognition contract before that chart can be enabled.
 
+An approved canonical candidate now exists at
+`supabase/migrations/202607170000_product_financial_recognition_allocations.sql`.
+It is not installed, its timestamp is not recorded, and Top Products remains
+disconnected until the development application rehearsal and later application
+integration are separately accepted.
+
+The development rehearsal must preserve aligned migration history by previewing
+only `202607170000` with `supabase db push --dry-run --linked`, then using
+`supabase db push --linked` only after separate approval. Manual SQL Editor
+execution of the canonical migration is prohibited.
+
 ## Live read-only verification
 
 Completed against **NexaNotion Business Dashboard Dev** on 16 July 2026 using
