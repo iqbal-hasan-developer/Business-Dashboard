@@ -189,7 +189,8 @@ select ok(
     ) as privilege
     where procedure.oid in (
       'public.dashboard_money_to_poisha(numeric)'::regprocedure,
-      'public.dashboard_poisha_to_money(bigint)'::regprocedure
+      'public.dashboard_poisha_to_money(bigint)'::regprocedure,
+      'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)'::regprocedure
     )
       and privilege.grantee = 0
       and privilege.privilege_type = 'EXECUTE'
@@ -259,11 +260,28 @@ select ok(
 );
 select ok(
   procedure.prosecdef
-    and exists (
-      select 1 from unnest(procedure.proconfig) as configuration
-      where configuration = 'search_path='
-    ),
-  'product reporting RPC is SECURITY DEFINER with an empty search path'
+    -- Empty GUC values may be catalogued as search_path=""; parse the value.
+    and (
+      select count(*) = 1
+      from unnest(coalesce(procedure.proconfig, array[]::text[]))
+        as configuration
+      where split_part(configuration, '=', 1) = 'search_path'
+        and btrim(
+          substring(configuration from length('search_path=') + 1),
+          '"'
+        ) = ''
+    )
+    and procedure.prosrc
+      ~* $role_gate$if\s+not\s+public\.dashboard_has_any_role\s*\($role_gate$
+    and procedure.prosrc
+      ~* $role_gate$'owner'\s*::\s*public\.dashboard_role$role_gate$
+    and procedure.prosrc
+      ~* $role_gate$'admin'\s*::\s*public\.dashboard_role$role_gate$
+    and procedure.prosrc
+      ~* $role_gate$'viewer'\s*::\s*public\.dashboard_role$role_gate$
+    and procedure.prosrc
+      ~* $role_gate$errcode\s*=\s*'42501'$role_gate$,
+  'product reporting RPC preserves SECURITY DEFINER, fixed path, and role gate'
 )
 from pg_proc as procedure
 where procedure.oid =

@@ -263,6 +263,34 @@ describe("review-only product financial recognition contract", () => {
     expect(pgTap).toContain(
       "'service_role',\n    'public.dashboard_money_to_poisha(numeric)', 'EXECUTE'",
     );
+    expect(pgTap).toContain(
+      "'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)'::regprocedure",
+    );
+  });
+
+  it("checks the product-reporting RPC without brittle catalog serialization", () => {
+    for (const sql of [reportingHelperAclVerifier, pgTap]) {
+      expect(sql).toContain(
+        "split_part(configuration, '=', 1) = 'search_path'",
+      );
+      expect(sql).toContain(
+        "substring(configuration from length('search_path=') + 1)",
+      );
+      expect(sql).not.toContain("configuration = 'search_path='");
+      expect(sql).toContain("procedure.prosrc");
+      expect(sql).toContain("public\\.dashboard_has_any_role");
+      expect(sql).toContain("'owner'\\s*::\\s*public\\.dashboard_role");
+      expect(sql).toContain("'admin'\\s*::\\s*public\\.dashboard_role");
+      expect(sql).toContain("'viewer'\\s*::\\s*public\\.dashboard_role");
+      expect(sql).toContain("errcode\\s*=\\s*'42501'");
+    }
+
+    expect(reportingHelperAclVerifier).toContain("procedure.prosecdef");
+    expect(reportingHelperAclVerifier).toContain(
+      "function_language.lanname = 'plpgsql'",
+    );
+    expect(reportingHelperAclVerifier).toContain("service_role_execute");
+    expect(reportingHelperAclVerifier).toContain("no_unexpected_execute");
   });
 
   it("keeps pgTAP and fixture coverage rollback-only and inventory-safe", () => {

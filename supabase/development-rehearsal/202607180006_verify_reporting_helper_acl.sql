@@ -117,19 +117,69 @@ with gate as (
       procedure.proowner,
       'authenticated'::regrole
     )
-), role_gate as (
-  select procedure.oid as function_oid,
-    procedure.prosecdef
-      and exists (
-        select 1
-        from unnest(coalesce(procedure.proconfig, array[]::text[]))
-          as configuration
-        where configuration = 'search_path='
-      ) as contract_valid
+), product_reporting_contract as (
+  select
+    procedure.oid as function_oid,
+    function_language.lanname = 'plpgsql' as language_valid,
+    procedure.prosecdef as security_definer,
+    -- Empty GUC values may be catalogued as search_path=""; parse the value.
+    (
+      select count(*) = 1
+      from unnest(coalesce(procedure.proconfig, array[]::text[]))
+        as configuration
+      where split_part(configuration, '=', 1) = 'search_path'
+        and btrim(
+          substring(configuration from length('search_path=') + 1),
+          '"'
+        ) = ''
+    ) as fixed_empty_search_path,
+    procedure.prosrc
+      ~* $role_gate$if\s+not\s+public\.dashboard_has_any_role\s*\($role_gate$
+      and procedure.prosrc
+        ~* $role_gate$'owner'\s*::\s*public\.dashboard_role$role_gate$
+      and procedure.prosrc
+        ~* $role_gate$'admin'\s*::\s*public\.dashboard_role$role_gate$
+      and procedure.prosrc
+        ~* $role_gate$'viewer'\s*::\s*public\.dashboard_role$role_gate$
+      and procedure.prosrc
+        ~* $role_gate$raise\s+exception\s+'Dashboard reporting access is required\.'$role_gate$
+      and procedure.prosrc
+        ~* $role_gate$errcode\s*=\s*'42501'$role_gate$
+      as role_gate_valid
   from pg_proc as procedure
+  join pg_language as function_language
+    on function_language.oid = procedure.prolang
   where procedure.oid = to_regprocedure(
     'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)'
   )
+), product_reporting_acl as (
+  select
+    has_function_privilege(
+      'authenticated', contract.function_oid, 'EXECUTE'
+    ) as authenticated_execute,
+    has_function_privilege(
+      'anon', contract.function_oid, 'EXECUTE'
+    ) as anon_execute,
+    has_function_privilege(
+      'service_role', contract.function_oid, 'EXECUTE'
+    ) as service_role_execute,
+    not exists (
+      select 1
+      from pg_proc as procedure
+      cross join lateral aclexplode(
+        coalesce(
+          procedure.proacl,
+          acldefault('f'::"char", procedure.proowner)
+        )
+      ) as privilege
+      where procedure.oid = contract.function_oid
+        and privilege.privilege_type = 'EXECUTE'
+        and privilege.grantee not in (
+          procedure.proowner,
+          'authenticated'::regrole
+        )
+    ) as no_unexpected_execute
+  from product_reporting_contract as contract
 ), checks(check_name, passed) as (
   values
     ('development_breadcrumb_confirmed', (select confirmed from gate)),
@@ -179,17 +229,18 @@ with gate as (
         'authenticated', 'public.inventory_restoration_movements', 'INSERT'
       )),
     ('product_reporting_role_gate_and_fixed_path_preserved',
-      (select count(*) from role_gate where contract_valid) = 1
-      and has_function_privilege(
-        'authenticated',
-        'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)',
-        'EXECUTE'
-      )
-      and not has_function_privilege(
-        'anon',
-        'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)',
-        'EXECUTE'
-      ))
+      (select count(*)
+       from product_reporting_contract
+       where language_valid
+         and security_definer
+         and fixed_empty_search_path
+         and role_gate_valid) = 1
+      and (select count(*)
+           from product_reporting_acl
+           where authenticated_execute
+             and not anon_execute
+             and not service_role_execute
+             and no_unexpected_execute) = 1)
 ), gated_checks as (
   select check_name, passed and (select confirmed from gate) as passed
   from checks
