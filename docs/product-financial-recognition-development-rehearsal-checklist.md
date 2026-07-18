@@ -1,14 +1,18 @@
 # Product financial recognition development rehearsal checklist
 
-Status: prepared only. Nothing in this checklist authorizes Supabase contact,
-SQL execution, production access, migration-history repair, inventory mutation,
-or Website repository changes.
+Status: the canonical product-recognition migration is applied in development;
+the reporting-helper ACL follow-up below is prepared only. Nothing in this
+checklist authorizes Supabase contact, SQL execution, production access,
+migration-history repair, inventory mutation, or Website repository changes.
 
 Target for a later separately approved rehearsal:
 **NexaNotion Business Dashboard Dev** only.
 
 Canonical candidate:
 `supabase/migrations/202607170000_product_financial_recognition_allocations.sql`
+
+Pending canonical least-privilege follow-up:
+`supabase/migrations/202607180000_authenticated_reporting_helper_execute.sql`
 
 ## Scope and accounting contract
 
@@ -116,6 +120,70 @@ that file's single breadcrumb sentinel.
 5. Return the preflight row, sanitized dry-run/application/list outputs,
    post-verifier rows, complete TAP output, fixture results, and cleanup rows.
 
+## Pending reporting-helper ACL follow-up
+
+The original sequence stopped at D.2. Resume at E; do not continue to D.3 or
+run any fixture until the follow-up verifier and pgTAP rerun are reviewed.
+
+The applied security-invoker reporting views call two immutable, strict,
+fixed-search-path conversion helpers. The original migration revoked helper
+execution from every application role while granting authenticated users
+`SELECT` on those views. The follow-up grants `EXECUTE` only on
+`dashboard_money_to_poisha(numeric)` and
+`dashboard_poisha_to_money(bigint)` to `authenticated`. It does not grant anon
+or service-role access and changes no table, RLS policy, data, or inventory.
+
+### E. Read-only follow-up preflight
+
+1. Open a new SQL Editor query whose visible breadcrumb says exactly
+   **NexaNotion Business Dashboard Dev**.
+2. Paste only
+   `supabase/development-rehearsal/202607180005_read_only_reporting_helper_acl_preflight.sql`.
+3. Replace its single breadcrumb sentinel and run it once.
+4. Require every check and `followup_application_allowed` to be `true`, with
+   every `stop_required` value `false`.
+5. Stop and return the result before any linked CLI command.
+
+### F. Follow-up checkpoint and linked dry run
+
+Only in a separately authorized task, verify the approved local checkpoint,
+clean tree, unchanged `202607170000` hash, CLI `2.106.0`, and private linked
+development identity. Then run:
+
+```powershell
+supabase migration list --linked
+supabase db push --dry-run --linked
+```
+
+Require `202607170000` in Local and Remote, and exactly
+`202607180000_authenticated_reporting_helper_execute.sql` as Local-only and the
+only pending dry-run migration. Stop after the dry run and return sanitized
+output for separate application approval.
+
+### G. Separately approved follow-up application
+
+Only after the dry-run evidence receives separate execution approval, repeat
+the local, identity, and migration-history gates and run exactly:
+
+```powershell
+supabase db push --linked
+supabase migration list --linked
+```
+
+Require both `202607170000` and `202607180000` in Local and Remote, with no
+unexpected Remote-only timestamp, seed, role application, warning, or error.
+
+### H. Follow-up verification and pgTAP rerun
+
+1. In a new SQL Editor query, run only
+   `supabase/development-rehearsal/202607180006_verify_reporting_helper_acl.sql`.
+   Require every check and `all_checks_passed` to be `true`.
+2. In another new query, rerun only
+   `supabase/development-rehearsal/202607180002_run_004_product_financial_allocations.sql`.
+   Require all 90 assertions and final plan `1..90` to pass through `ROLLBACK`.
+3. Stop and return both results. Do not run the controlled fixtures until those
+   results receive review.
+
 ## Preflight stop conditions
 
 Stop without applying the candidate if any of these is true:
@@ -149,6 +217,7 @@ its transaction. A guard exception is a safe stop and rolls back the candidate.
 | Item recognition/refund/return ledgers | None | `SELECT`, owner/admin RLS | None |
 | Return events, inspections, restoration evidence | None | `SELECT`, owner/admin RLS | None |
 | Product reconciliation/data-quality views | None | `SELECT`, invoker RLS | None |
+| Pure reporting conversion helpers | None | `EXECUTE`, required by invoker views | None |
 | Refund, return, inspection RPCs | None | `EXECUTE`, owner/admin check | None |
 | Product financial reporting RPC | None | `EXECUTE`, owner/admin/viewer check | None |
 | Internal allocators and validators | None | None | None |
@@ -178,6 +247,8 @@ related audit/financial evidence persisted.
 - Do not run the reviewed file under `supabase/development-migrations`.
 - Do not paste or run the canonical migration in SQL Editor.
 - Do not run `db push` before its exact dry run and separate execution approval.
+- Do not apply `202607180000` before its read-only preflight, exact linked dry
+  run, sanitized evidence review, and separate execution approval.
 - Do not use `--include-all`, `--include-seed`, `--include-roles`, `--db-url`, or
   `--password`.
 - Do not run `db reset`, migration repair, baseline SQL, seed application, role

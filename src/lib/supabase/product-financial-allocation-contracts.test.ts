@@ -10,6 +10,9 @@ const proposal = read(
 const canonical = read(
   "supabase/migrations/202607170000_product_financial_recognition_allocations.sql",
 );
+const reportingHelperAclMigration = read(
+  "supabase/migrations/202607180000_authenticated_reporting_helper_execute.sql",
+);
 const review = read("docs/product-financial-recognition-contract-review.md");
 const pgTap = read("supabase/tests/database/004_product_financial_allocations.test.sql");
 const fixtures = read(
@@ -30,12 +33,19 @@ const fixtureWrapper = read(
 const cleanup = read(
   "supabase/development-rehearsal/202607180004_verify_product_financial_cleanup.sql",
 );
+const reportingHelperAclPreflight = read(
+  "supabase/development-rehearsal/202607180005_read_only_reporting_helper_acl_preflight.sql",
+);
+const reportingHelperAclVerifier = read(
+  "supabase/development-rehearsal/202607180006_verify_reporting_helper_acl.sql",
+);
 const rehearsalChecklist = read(
   "docs/product-financial-recognition-development-rehearsal-checklist.md",
 );
 const completeContract = [
   proposal,
   canonical,
+  reportingHelperAclMigration,
   review,
   pgTap,
   fixtures,
@@ -44,6 +54,8 @@ const completeContract = [
   pgTapWrapper,
   fixtureWrapper,
   cleanup,
+  reportingHelperAclPreflight,
+  reportingHelperAclVerifier,
   rehearsalChecklist,
 ].join("\n");
 const stripSqlComments = (sql: string) =>
@@ -51,6 +63,10 @@ const stripSqlComments = (sql: string) =>
     .replace(/--.*$/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/'(?:''|[^'])*'/g, "''");
+const transactionBody = (sql: string) => {
+  const start = sql.search(/^begin;\s*$/im);
+  return start === -1 ? "" : sql.slice(start);
+};
 
 describe("review-only product financial recognition contract", () => {
   it("stays development-only and separates migration audit from repair", () => {
@@ -212,6 +228,43 @@ describe("review-only product financial recognition contract", () => {
     );
   });
 
+  it("repairs only the authenticated security-invoker reporting helper ACL", () => {
+    const executableMigration = stripSqlComments(reportingHelperAclMigration);
+
+    expect(canonical).toContain(
+      "public.dashboard_money_to_poisha(numeric),\n  public.dashboard_poisha_to_money(bigint)",
+    );
+    expect(canonical).toContain(
+      "from public, anon, authenticated, service_role;",
+    );
+    expect(reportingHelperAclMigration).toMatch(
+      /\bbegin;[\s\S]*grant execute on function\s+public\.dashboard_money_to_poisha\(numeric\),\s+public\.dashboard_poisha_to_money\(bigint\)\s+to authenticated;[\s\S]*\bcommit;\s*$/i,
+    );
+    expect(executableMigration).not.toMatch(
+      /grant[\s\S]{0,300}\bto\s+(?:public|anon|service_role)\b/i,
+    );
+    expect(executableMigration).not.toMatch(
+      /\b(insert|update|delete|truncate|alter table|create table|drop table)\b/i,
+    );
+    expect(executableMigration).not.toMatch(
+      /decrement_product_stock\s*\(|update\s+public\.products\s+set\s+stock/i,
+    );
+    expect(reportingHelperAclMigration).toContain("search_path=pg_catalog");
+    expect(reportingHelperAclMigration).toContain("security_invoker=true");
+    expect(reportingHelperAclMigration).toContain(
+      "Protected roles unexpectedly have reporting helper access.",
+    );
+    expect(pgTap).toContain(
+      "authenticated reporting has only the required helper and RPC execute grants",
+    );
+    expect(pgTap).toContain(
+      "'authenticated',\n    'public.dashboard_poisha_to_money(bigint)', 'EXECUTE'",
+    );
+    expect(pgTap).toContain(
+      "'service_role',\n    'public.dashboard_money_to_poisha(numeric)', 'EXECUTE'",
+    );
+  });
+
   it("keeps pgTAP and fixture coverage rollback-only and inventory-safe", () => {
     for (const scenario of [
       "full refund without return",
@@ -237,17 +290,92 @@ describe("review-only product financial recognition contract", () => {
     expect(fixtureWrapper).toContain("Reserved product-financial fixture identifiers");
   });
 
+  it("keeps all 90 pgTAP assertions in parity with exact numeric types", () => {
+    const assertionFunctions = [
+      "has_table",
+      "has_view",
+      "has_function",
+      "ok",
+      "is",
+      "throws_ok",
+      "lives_ok",
+      "results_eq",
+    ];
+    const assertionPattern = new RegExp(
+      `^select\\s+(?:${assertionFunctions.join("|")})\\s*\\(`,
+      "gim",
+    );
+    const bigintAggregateColumns = [
+      "gross_product_revenue_poisha",
+      "delivery_revenue_poisha",
+      "product_discount_poisha",
+      "delivery_discount_poisha",
+      "delivery_refund_poisha",
+      "quantity_delta",
+      "delivered_units",
+      "returned_units",
+    ];
+
+    expect(pgTap.match(assertionPattern) ?? []).toHaveLength(90);
+    expect(pgTap).toContain("select no_plan();");
+    expect(pgTap.trimEnd()).toMatch(/select \* from finish\(\);\s*rollback;$/i);
+    expect(transactionBody(pgTap)).not.toBe("");
+    expect(transactionBody(pgTapWrapper)).toBe(transactionBody(pgTap));
+
+    for (const column of bigintAggregateColumns) {
+      expect(
+        pgTap.match(
+          new RegExp(`sum\\(\\s*${column}\\s*\\)(?!\\s*::bigint)`, "gi"),
+        ) ?? [],
+      ).toHaveLength(0);
+    }
+
+    for (const exactTypeFragment of [
+      "sum(gross_product_revenue_poisha)::bigint",
+      "sum(delivery_revenue_poisha)::bigint",
+      "sum(product_discount_poisha)::bigint",
+      "sum(delivery_discount_poisha)::bigint",
+      "sum(delivery_refund_poisha)::bigint",
+      "coalesce(sum(quantity_delta)::bigint, 0::bigint)",
+      "sum(delivered_units)::bigint",
+      "sum(returned_units)::bigint",
+      "row(1::bigint, 0::bigint)",
+    ]) {
+      expect(pgTap).toContain(exactTypeFragment);
+    }
+
+    expect(pgTap).not.toMatch(/\b(real|double precision|float\d*)\b/i);
+  });
+
   it("keeps rehearsal gates metadata-only and verifies cleanup independently", () => {
     const executablePreflight = stripSqlComments(preflight);
     const executableVerifier = stripSqlComments(verifier);
     const executableCleanup = stripSqlComments(cleanup);
+    const executableHelperPreflight = stripSqlComments(
+      reportingHelperAclPreflight,
+    );
+    const executableHelperVerifier = stripSqlComments(
+      reportingHelperAclVerifier,
+    );
 
-    for (const sql of [executablePreflight, executableVerifier, executableCleanup]) {
+    for (const sql of [
+      executablePreflight,
+      executableVerifier,
+      executableCleanup,
+      executableHelperPreflight,
+      executableHelperVerifier,
+    ]) {
       expect(sql).not.toMatch(
         /\b(insert|update|delete|truncate|alter|create|drop|grant|revoke)\b/i,
       );
     }
-    for (const sql of [preflight, verifier, cleanup]) {
+    for (const sql of [
+      preflight,
+      verifier,
+      cleanup,
+      reportingHelperAclPreflight,
+      reportingHelperAclVerifier,
+    ]) {
       expect(sql).toContain("__CONFIRM_VISIBLE_DEVELOPMENT_BREADCRUMB__");
     }
     expect(preflight).toContain("application_allowed");
@@ -256,6 +384,13 @@ describe("review-only product financial recognition contract", () => {
     expect(verifier).toContain("website_trigger_path_preserved");
     expect(verifier).toContain("no_inventory_mutation_in_financial_functions");
     expect(cleanup).toContain("all_fixture_records_removed");
+    expect(reportingHelperAclPreflight).toContain("followup_application_allowed");
+    expect(reportingHelperAclVerifier).toContain(
+      "authenticated_has_required_helper_execute",
+    );
+    expect(reportingHelperAclVerifier).toContain(
+      "service_role_has_no_helper_or_financial_expansion",
+    );
   });
 
   it("uses only the approved linked CLI migration workflow", () => {
@@ -272,6 +407,8 @@ describe("review-only product financial recognition contract", () => {
     expect(dbPushCommands).toEqual([
       "supabase db push --dry-run --linked",
       "supabase db push --linked",
+      "supabase db push --dry-run --linked",
+      "supabase db push --linked",
     ]);
     expect(powershellCommands).toContain("supabase migration list --linked");
     expect(powershellCommands).toContain("supabase --version");
@@ -286,6 +423,12 @@ describe("review-only product financial recognition contract", () => {
     );
     expect(rehearsalChecklist).toContain(
       "Do not paste or run the canonical migration in SQL Editor.",
+    );
+    expect(rehearsalChecklist).toContain(
+      "202607180000_authenticated_reporting_helper_execute.sql",
+    );
+    expect(rehearsalChecklist).toContain(
+      "Stop after the dry run and return sanitized",
     );
   });
 });

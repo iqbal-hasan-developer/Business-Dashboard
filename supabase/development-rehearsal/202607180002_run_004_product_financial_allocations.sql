@@ -178,7 +178,39 @@ select ok(
   'Website status updates reach a SECURITY DEFINER recognition trigger'
 );
 select ok(
-  not has_function_privilege(
+  not exists (
+    select 1
+    from pg_proc as procedure
+    cross join lateral aclexplode(
+      coalesce(
+        procedure.proacl,
+        acldefault('f'::"char", procedure.proowner)
+      )
+    ) as privilege
+    where procedure.oid in (
+      'public.dashboard_money_to_poisha(numeric)'::regprocedure,
+      'public.dashboard_poisha_to_money(bigint)'::regprocedure
+    )
+      and privilege.grantee = 0
+      and privilege.privilege_type = 'EXECUTE'
+  )
+  and has_function_privilege(
+    'authenticated',
+    'public.dashboard_money_to_poisha(numeric)', 'EXECUTE'
+  ) and has_function_privilege(
+    'authenticated',
+    'public.dashboard_poisha_to_money(bigint)', 'EXECUTE'
+  ) and not has_function_privilege(
+    'anon', 'public.dashboard_money_to_poisha(numeric)', 'EXECUTE'
+  ) and not has_function_privilege(
+    'anon', 'public.dashboard_poisha_to_money(bigint)', 'EXECUTE'
+  ) and not has_function_privilege(
+    'service_role',
+    'public.dashboard_money_to_poisha(numeric)', 'EXECUTE'
+  ) and not has_function_privilege(
+    'service_role',
+    'public.dashboard_poisha_to_money(bigint)', 'EXECUTE'
+  ) and not has_function_privilege(
     'anon',
     'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)',
     'EXECUTE'
@@ -191,7 +223,7 @@ select ok(
     'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)',
     'EXECUTE'
   ),
-  'product reporting RPC is authenticated-only and role-gated'
+  'authenticated reporting has only the required helper and RPC execute grants'
 );
 select ok(
   not has_function_privilege(
@@ -454,24 +486,27 @@ select is(
   'non-Delivered orders create no product allocations'
 );
 select is(
-  (select sum(gross_product_revenue_poisha)
+  (select sum(gross_product_revenue_poisha)::bigint
    from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
   200::bigint,
   'Gross Product Revenue excludes delivery and reconciles exactly'
 );
 select is(
-  (select sum(delivery_revenue_poisha)
+  (select sum(delivery_revenue_poisha)::bigint
    from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
   1::bigint,
   'Allocated Delivery Revenue reconciles exactly'
 );
 select is(
-  (select row(sum(product_discount_poisha), sum(delivery_discount_poisha))
+  (select row(
+     sum(product_discount_poisha)::bigint,
+     sum(delivery_discount_poisha)::bigint
+   )
    from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
-  row(1::numeric, 0::numeric),
+  row(1::bigint, 0::bigint),
   'discount is deterministic and product-first before delivery'
 );
 select ok(
@@ -507,10 +542,10 @@ select lives_ok(
   'product-only proportional fallback refund succeeds'
 );
 select is(
-  (select sum(delivery_refund_poisha)
+  (select sum(delivery_refund_poisha)::bigint
    from public.order_item_refund_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
-  0::numeric,
+  0::bigint,
   'product-only fallback does not silently refund delivery'
 );
 select lives_ok(
@@ -530,10 +565,10 @@ select lives_ok(
   'delivery refund succeeds only with explicit delivery scope'
 );
 select is(
-  (select sum(delivery_refund_poisha)
+  (select sum(delivery_refund_poisha)::bigint
    from public.order_item_refund_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
-  1::numeric,
+  1::bigint,
   'delivery-scoped refund consumes only delivery capacity'
 );
 select lives_ok(
@@ -742,10 +777,10 @@ select is(
   'damaged return reverses scoped revenue and retains COGS'
 );
 select is(
-  (select coalesce(sum(quantity_delta), 0)
+  (select coalesce(sum(quantity_delta)::bigint, 0::bigint)
    from public.inventory_restoration_movements
    where order_id = '82300000-0000-4000-8000-000000000004'),
-  2::numeric,
+  2::bigint,
   'resellable return creates an immutable inventory-restoration movement'
 );
 select is(
@@ -898,8 +933,8 @@ select is(
     select row(
       sum(gross_product_revenue), sum(allocated_delivery_revenue),
       sum(allocated_discount), sum(allocated_refund),
-      sum(adjusted_product_net_revenue), sum(delivered_units),
-      sum(returned_units)
+      sum(adjusted_product_net_revenue), sum(delivered_units)::bigint,
+      sum(returned_units)::bigint
     )
     from public.get_dashboard_product_financials(
       '2026-07-17', '2026-07-17', 'WhatsApp',
@@ -909,7 +944,7 @@ select is(
   ),
   row(
     2.00::numeric, 0.01::numeric, 0.01::numeric,
-    2.00::numeric, 0.00::numeric, 3::numeric, 0::numeric
+    2.00::numeric, 0.00::numeric, 3::bigint, 0::bigint
   ),
   'Top Products exposes distinct revenue, delivery, discount, refund, net, delivered, and returned measures'
 );
