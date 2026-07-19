@@ -13,6 +13,13 @@ export function parseMoney(value: string): Money {
   return amount;
 }
 
+export function moneyToDatabaseNumber(value: Money): number {
+  assertMoney(value);
+  const amount = Number(`${value < 0 ? "-" : ""}${Math.floor(Math.abs(value) / 100)}.${String(Math.abs(value) % 100).padStart(2, "0")}`);
+  if (!Number.isFinite(amount)) throw new Error("Money is outside the supported database range.");
+  return amount;
+}
+
 export function formatMoney(value: Money, showDecimals = false): string {
   assertMoney(value);
   const sign = value < 0 ? "-" : "";

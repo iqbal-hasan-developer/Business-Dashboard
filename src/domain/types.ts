@@ -41,6 +41,7 @@ export interface Product {
   sellingPrice: Money;
   stock: number;
   reorderLevel: number;
+  internalNotes?: string;
 }
 
 export interface OrderItem {
@@ -60,6 +61,9 @@ export interface Order {
   externalReference?: string;
   orderDate: string;
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerNote?: string;
   customerLocation: "Inside Dhaka" | "Outside Dhaka";
   courier: string;
   channel: SalesChannel;

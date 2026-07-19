@@ -25,7 +25,10 @@ export type ProductBusinessRow = {
   sku_override: string | null;
   variation: string | null;
   buying_price: number;
+  buying_price_verified_at: string | null;
+  buying_price_verified_by: string | null;
   reorder_level: number;
+  internal_notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +39,7 @@ export type OrderRow = {
   customer_name: string;
   customer_phone: string;
   customer_address: string;
+  customer_note: string | null;
   delivery_area: string;
   payment_method: string;
   payment_status: string;
@@ -264,6 +268,27 @@ export type Database = {
     Functions: {
       create_dashboard_order: {
         Args: { p_order: Json; p_items: Json };
+        Returns: string;
+      };
+      transition_dashboard_order: {
+        Args: {
+          p_order_id: string;
+          p_order_status: string;
+          p_payment_status?: string | null;
+          p_settlement_status?: string | null;
+          p_refund_amount?: number | null;
+        };
+        Returns: undefined;
+      };
+      set_product_buying_cost: {
+        Args: {
+          p_product_id: string;
+          p_buying_price: number;
+          p_reorder_level?: number;
+          p_sku_override?: string | null;
+          p_variation?: string | null;
+          p_internal_notes?: string | null;
+        };
         Returns: string;
       };
       get_dashboard_financial_summary: {

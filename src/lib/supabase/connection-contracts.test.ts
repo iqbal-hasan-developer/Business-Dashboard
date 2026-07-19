@@ -24,8 +24,14 @@ describe("development Supabase connection contracts", () => {
   it("contains no privileged credential or inventory-mutation path", () => {
     expect(source).not.toMatch(/service.?role/i);
     expect(source).not.toContain("decrement_product_stock");
-    const rpcNames = [...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]);
-    expect(rpcNames).toEqual(["get_dashboard_financial_summary"]);
+    const rpcNames = [...new Set([...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]))].sort();
+    expect(rpcNames).toEqual([
+      "create_dashboard_order",
+      "get_dashboard_financial_summary",
+      "set_product_buying_cost",
+      "transition_dashboard_order",
+    ]);
+    expect(source).not.toMatch(/record_dashboard_(refund|return)/i);
     expect(source).not.toMatch(/\.update\s*\([^)]*stock/i);
   });
 

@@ -151,8 +151,8 @@ function TopBar({ user }: { user: DashboardUser }) {
           <DropdownMenuGroup>
             <DropdownMenuLabel>Create record</DropdownMenuLabel>
             <DropdownMenuItem render={<Link href="/orders/new" />}><ShoppingBag /> New order</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/products" />}><PackagePlus /> New product</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/expenses" />}><CircleDollarSign /> New expense</DropdownMenuItem>
+            <DropdownMenuItem disabled><PackagePlus /> Product creation unavailable</DropdownMenuItem>
+            <DropdownMenuItem disabled><CircleDollarSign /> Expense entry not in this slice</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>

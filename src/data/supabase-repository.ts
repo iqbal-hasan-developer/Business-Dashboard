@@ -101,6 +101,7 @@ export function mapProduct(row: ProductRow, business?: ProductBusinessRow): Prod
     sellingPrice: toMoney(row.price),
     stock: row.stock ?? 0,
     reorderLevel: business?.reorder_level ?? 0,
+    internalNotes: business?.internal_notes ?? undefined,
   };
 }
 
@@ -138,6 +139,9 @@ export function mapOrder(row: OrderRow, itemRows: OrderItemRow[]): Order {
     externalReference: row.external_reference ?? undefined,
     orderDate: row.order_date ?? row.created_at?.slice(0, 10) ?? dhakaBusinessDate(),
     customerName: row.customer_name,
+    customerPhone: row.customer_phone,
+    customerAddress: row.customer_address,
+    customerNote: row.customer_note ?? undefined,
     customerLocation: row.customer_location === "Outside Dhaka" ? "Outside Dhaka" : "Inside Dhaka",
     courier: row.courier ?? "Steadfast",
     channel: allowed(SALES_CHANNELS, row.sales_channel, "Other") as SalesChannel,
@@ -510,7 +514,7 @@ export class SupabaseBusinessRepository implements BusinessRepository {
         .order("name")
         .limit(MAX_LIST_ROWS),
       this.supabase.from("product_business_data")
-        .select("product_id,sku_override,variation,buying_price,reorder_level,created_at,updated_at", { count: "exact" })
+        .select("product_id,sku_override,variation,buying_price,buying_price_verified_at,buying_price_verified_by,reorder_level,internal_notes,created_at,updated_at", { count: "exact" })
         .limit(MAX_LIST_ROWS),
     ]);
     if (productsResult.error || businessResult.error || !productsResult.data || !businessResult.data) {
