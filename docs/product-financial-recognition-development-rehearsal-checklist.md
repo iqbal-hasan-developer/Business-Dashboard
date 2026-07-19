@@ -331,3 +331,32 @@ and returns one exportable result grid before `ROLLBACK` removes the buffer.
 - Do not modify the NexaNotion Website repository.
 - Do not place credentials, project references, or environment values in SQL,
   command arguments, screenshots, logs, documentation, or chat.
+
+## Manual-entry MVP pivot and pending migration order
+
+Top Products stays unavailable. Migration `202607190000` is committed locally
+but remains unapplied; do not resume that rehearsal without a separate approval.
+The manual-entry product RPC proposal is
+`202607200000_product_catalog_management_rpc.sql` and also remains unapplied.
+
+When separately approved, the only valid consolidated development rehearsal is:
+
+1. Reconfirm the linked development breadcrumb and aligned installed history.
+2. Run `202607190001_read_only_product_reporting_scope_preflight.sql` only.
+3. Dry-run only `202607190000`; obtain separate approval before applying it.
+4. Run `202607190002_verify_product_reporting_scope.sql` and rerun suite 004.
+5. In `202607200001_read_only_product_catalog_rpc_preflight.sql`, replace the
+   development breadcrumb placeholder with exactly
+   `NexaNotion Business Dashboard Dev`, then run that file only.
+6. Dry-run only `202607200000`; obtain another separate approval before applying it.
+7. Run `202607200002_verify_product_catalog_rpc.sql` only.
+8. Set the SQL Editor result limit to at least 1,000 and run
+   `supabase/tests/database/005_product_catalog_management.test.sql` only.
+9. Require one ordered result grid containing all 19 assertions, every failure
+   diagnostic, final plan `1..19`, and final `ROLLBACK`. If any assertion fails,
+   export the complete grid and stop.
+10. Run `202607200003_verify_product_catalog_cleanup.sql` only and require all
+    cleanup booleans to be true.
+
+Never combine the two applications, use `--include-all`, or proceed from one
+preflight, dry run, verifier, or pgTAP step without reviewing its result first.

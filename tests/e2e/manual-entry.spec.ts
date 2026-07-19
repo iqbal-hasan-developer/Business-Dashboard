@@ -14,10 +14,15 @@ test("manual order UI remains usable but cannot persist in mock mode", async ({ 
   await expect(page.getByRole("button", { name: "Save order" })).toBeDisabled();
 });
 
-test("unsupported product and status writes stay disabled in mock mode", async ({ page }) => {
+test("all manual-entry writes fail closed in explicit mock mode", async ({ page }) => {
   await page.goto("/products");
-  await expect(page.getByRole("button", { name: "Add product unavailable" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Edit costs" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add product" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Edit", exact: true }).first()).toBeDisabled();
+  await page.goto("/expenses");
+  await expect(page.getByRole("button", { name: "Record expense" })).toBeDisabled();
+  await page.goto("/marketing");
+  await expect(page.getByRole("button", { name: "New campaign" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Record ad spend" })).toBeDisabled();
   await page.goto("/orders/o1");
   await expect(page.getByRole("button", { name: "Save statuses" })).toBeDisabled();
 });

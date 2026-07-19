@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
   updateStatuses: vi.fn(),
   updateProduct: vi.fn(),
+  createProduct: vi.fn(),
+  updateCatalog: vi.fn(),
+  recordExpense: vi.fn(),
+  saveCampaign: vi.fn(),
+  recordAdSpend: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
@@ -19,9 +24,14 @@ vi.mock("@/data/manual-entry-writes", () => ({
   createManualOrder: mocks.createOrder,
   updateManualOrderStatuses: mocks.updateStatuses,
   updateProductBusinessData: mocks.updateProduct,
+  createProductCatalogEntry: mocks.createProduct,
+  updateProductCatalogEntry: mocks.updateCatalog,
+  recordExpenseEntry: mocks.recordExpense,
+  upsertCampaignEntry: mocks.saveCampaign,
+  recordAdSpendEntry: mocks.recordAdSpend,
 }));
 
-import { createOrderAction, updateOrderStatusesAction } from "@/actions/manual-entry";
+import { createOrderAction, recordExpenseAction, saveProductAction, updateOrderStatusesAction } from "@/actions/manual-entry";
 
 const order: ManualOrderValues = {
   orderNumber: "NNM-20260719-001", externalReference: "", orderDate: "2026-07-19", customerName: "Customer",
@@ -76,5 +86,26 @@ describe("manual-entry server actions", () => {
     mocks.createOrder.mockRejectedValue({ code: "23505", message: "constraint details" });
     const result = await createOrderAction(order);
     expect(result).toEqual({ ok: false, message: "That order number already exists. Use a unique order number." });
+  });
+
+  it("fails product and expense writes closed in mock mode", async () => {
+    mocks.provider.mockReturnValue("mock");
+    const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
+    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "" });
+    expect(product.ok).toBe(false); expect(expense.ok).toBe(false);
+    expect(mocks.createProduct).not.toHaveBeenCalled(); expect(mocks.recordExpense).not.toHaveBeenCalled();
+  });
+
+  it("uses the owner JWT client for product and expense writes and revalidates their pages", async () => {
+    const client = { rpc: vi.fn() }; mocks.createClient.mockResolvedValue(client);
+    mocks.createProduct.mockResolvedValue("82100000-0000-4000-8000-000000000001");
+    mocks.recordExpense.mockResolvedValue("82200000-0000-4000-8000-000000000001");
+    const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
+    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "" });
+    expect(product.ok).toBe(true); expect(expense.ok).toBe(true);
+    expect(mocks.createProduct).toHaveBeenCalledWith(client, expect.objectContaining({ publicSku: "PUB-1" }));
+    expect(mocks.recordExpense).toHaveBeenCalledWith(client, expect.objectContaining({ amount: "10" }));
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/expenses");
   });
 });

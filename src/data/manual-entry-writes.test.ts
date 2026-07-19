@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { createManualOrder, updateManualOrderStatuses, updateProductBusinessData } from "@/data/manual-entry-writes";
+import { createManualOrder, createProductCatalogEntry, recordAdSpendEntry, recordExpenseEntry, updateManualOrderStatuses, updateProductBusinessData, upsertCampaignEntry } from "@/data/manual-entry-writes";
 import type { ManualOrderValues, OrderTransitionValues, ProductBusinessValues } from "@/domain/manual-entry";
 
 type Client = Parameters<typeof createManualOrder>[0];
@@ -46,11 +46,29 @@ describe("manual-entry RPC repository", () => {
     expect(rpc).toHaveBeenCalledWith("set_product_buying_cost", expect.objectContaining({ p_buying_price: 280.25, p_reorder_level: 10 }));
   });
 
+  it("creates products atomically through the new RPC and sends no stock value", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: order.items[0].productId, error: null });
+    await createProductCatalogEntry(clientWith(rpc), { name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "580.25", isActive: true, categoryId: null, buyingPrice: "280.15", reorderLevel: 0, dashboardSku: "DASH-1", variation: "Blue", internalNotes: "Private" });
+    expect(rpc).toHaveBeenCalledWith("create_dashboard_product", expect.objectContaining({ p_price: 580.25, p_buying_price: 280.15 }));
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty("p_stock");
+  });
+
+  it("uses installed expense, campaign, and ad-spend RPCs with exact decimal values", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: "82100000-0000-4000-8000-000000000001", error: null });
+    const client = clientWith(rpc);
+    await recordExpenseEntry(client, { expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "15.25", paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "" });
+    await upsertCampaignEntry(client, { name: "Launch", channel: "Meta", startsOn: "", endsOn: "", budget: "100.50", isActive: true });
+    await recordAdSpendEntry(client, { campaignId: "82100000-0000-4000-8000-000000000001", spendDate: "2026-07-19", platform: "Meta", amount: "20.75", sourceReference: "" });
+    expect(rpc).toHaveBeenNthCalledWith(1, "record_expense", expect.objectContaining({ p_amount: 15.25 }));
+    expect(rpc).toHaveBeenNthCalledWith(2, "upsert_campaign", expect.objectContaining({ p_budget: 100.5 }));
+    expect(rpc).toHaveBeenNthCalledWith(3, "record_daily_ad_spend", expect.objectContaining({ p_amount: 20.75 }));
+  });
+
   it("contains no direct table write, service-role, inventory, refund, or return path", () => {
     const repository = readFileSync("src/data/manual-entry-writes.ts", "utf8");
     const actions = readFileSync("src/actions/manual-entry.ts", "utf8");
     const combined = `${repository}\n${actions}`;
-    expect(repository.match(/client\.rpc\(/g)).toHaveLength(3);
+    expect(repository.match(/client\.rpc\(/g)).toHaveLength(8);
     expect(combined).not.toMatch(/service[_-]?role|\.from\s*\(|decrement_product_stock|inventory|record_dashboard_refund|record_dashboard_return/i);
     expect(actions).toContain("requireDashboardUser()");
     expect(actions).toContain("resolveBusinessDataProvider() !== \"supabase\"");

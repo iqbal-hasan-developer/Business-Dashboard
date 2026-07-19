@@ -100,6 +100,12 @@ export type ExpenseRow = {
 export type Database = {
   public: {
     Tables: {
+      categories: Table<{
+        id: string;
+        name: string;
+        slug: string;
+        is_active: boolean | null;
+      }>;
       products: Table<ProductRow>;
       product_business_data: Table<ProductBusinessRow>;
       orders: Table<OrderRow>;
@@ -266,6 +272,38 @@ export type Database = {
       };
     };
     Functions: {
+      create_dashboard_product: {
+        Args: {
+          p_name: string; p_slug: string; p_sku: string; p_price: number;
+          p_is_active?: boolean; p_category_id?: string | null;
+          p_buying_price?: number; p_reorder_level?: number;
+          p_dashboard_sku?: string | null; p_variation?: string | null;
+          p_internal_notes?: string | null;
+        };
+        Returns: string;
+      };
+      update_dashboard_product: {
+        Args: {
+          p_product_id: string; p_name: string; p_slug: string; p_sku: string;
+          p_price: number; p_is_active: boolean; p_category_id?: string | null;
+          p_buying_price?: number; p_reorder_level?: number;
+          p_dashboard_sku?: string | null; p_variation?: string | null;
+          p_internal_notes?: string | null;
+        };
+        Returns: string;
+      };
+      record_expense: {
+        Args: { p_expense_date: string; p_category_key: string; p_description: string; p_amount: number; p_payment_method?: string | null; p_campaign_id?: string | null; p_sales_channel?: string | null; p_reference?: string | null };
+        Returns: string;
+      };
+      upsert_campaign: {
+        Args: { p_id: string | null; p_name: string; p_channel: string; p_starts_on: string | null; p_ends_on: string | null; p_budget: number; p_is_active?: boolean };
+        Returns: string;
+      };
+      record_daily_ad_spend: {
+        Args: { p_campaign_id: string; p_spend_date: string; p_platform: string; p_amount: number; p_source_reference?: string | null };
+        Returns: string;
+      };
       create_dashboard_order: {
         Args: { p_order: Json; p_items: Json };
         Returns: string;

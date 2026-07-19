@@ -6,15 +6,24 @@ import { requireDashboardUser } from "@/lib/auth/session";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
+  adSpendEntrySchema,
+  campaignEntrySchema,
+  expenseEntrySchema,
   manualOrderSchema,
   orderTransitionSchema,
   productBusinessSchema,
+  productCatalogSchema,
   safeManualEntryError,
 } from "@/domain/manual-entry";
 import {
+  createProductCatalogEntry,
   createManualOrder,
+  recordAdSpendEntry,
+  recordExpenseEntry,
+  updateProductCatalogEntry,
   updateManualOrderStatuses,
   updateProductBusinessData,
+  upsertCampaignEntry,
 } from "@/data/manual-entry-writes";
 
 export type ManualEntryActionResult = {
@@ -26,6 +35,60 @@ export type ManualEntryActionResult = {
 
 function safeWriteError(error: unknown, duplicateLabel?: string): ManualEntryActionResult {
   return { ok: false, message: safeManualEntryError(error, duplicateLabel) };
+}
+
+function revalidate(paths: string[]) { paths.forEach((path) => revalidatePath(path)); }
+
+export async function saveProductAction(input: unknown): Promise<ManualEntryActionResult> {
+  const parsed = productCatalogSchema.safeParse(input);
+  if (!parsed.success) return validationResult(parsed.error);
+  const boundary = await requirePersistentWrite(parsed.data.productId ? "update" : "create", ["owner", "admin"]);
+  if (boundary.error) return boundary.error;
+  try {
+    const productId = parsed.data.productId
+      ? await updateProductCatalogEntry(boundary.client, parsed.data)
+      : await createProductCatalogEntry(boundary.client, parsed.data);
+    revalidate(["/products", "/orders/new", "/dashboard", "/reports", "/data-checks"]);
+    return { ok: true, message: parsed.data.productId ? "Product updated successfully." : "Product created successfully.", recordId: productId };
+  } catch (error) {
+    return safeWriteError(error, "That slug, public SKU, or dashboard SKU already exists.");
+  }
+}
+
+export async function recordExpenseAction(input: unknown): Promise<ManualEntryActionResult> {
+  const parsed = expenseEntrySchema.safeParse(input);
+  if (!parsed.success) return validationResult(parsed.error);
+  const boundary = await requirePersistentWrite("create", ["owner", "admin"]);
+  if (boundary.error) return boundary.error;
+  try {
+    const recordId = await recordExpenseEntry(boundary.client, parsed.data);
+    revalidate(["/expenses", "/dashboard", "/reports"]);
+    return { ok: true, message: "Expense recorded successfully.", recordId };
+  } catch (error) { return safeWriteError(error); }
+}
+
+export async function saveCampaignAction(input: unknown): Promise<ManualEntryActionResult> {
+  const parsed = campaignEntrySchema.safeParse(input);
+  if (!parsed.success) return validationResult(parsed.error);
+  const boundary = await requirePersistentWrite(parsed.data.campaignId ? "update" : "create", ["owner", "admin"]);
+  if (boundary.error) return boundary.error;
+  try {
+    const recordId = await upsertCampaignEntry(boundary.client, parsed.data);
+    revalidate(["/marketing", "/dashboard", "/reports"]);
+    return { ok: true, message: "Campaign saved successfully.", recordId };
+  } catch (error) { return safeWriteError(error); }
+}
+
+export async function recordAdSpendAction(input: unknown): Promise<ManualEntryActionResult> {
+  const parsed = adSpendEntrySchema.safeParse(input);
+  if (!parsed.success) return validationResult(parsed.error);
+  const boundary = await requirePersistentWrite("create", ["owner", "admin", "data_entry"]);
+  if (boundary.error) return boundary.error;
+  try {
+    const recordId = await recordAdSpendEntry(boundary.client, parsed.data);
+    revalidate(["/marketing", "/dashboard", "/reports"]);
+    return { ok: true, message: "Advertising spend recorded successfully.", recordId };
+  } catch (error) { return safeWriteError(error); }
 }
 
 function validationResult(error: { flatten(): { fieldErrors: Record<string, string[]> } }): ManualEntryActionResult {

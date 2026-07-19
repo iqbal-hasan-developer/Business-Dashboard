@@ -1,0 +1,30 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { BadgeDollarSign, Megaphone, Save } from "lucide-react";
+import { toast } from "sonner";
+import { recordAdSpendAction, saveCampaignAction } from "@/actions/manual-entry";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { adSpendEntrySchema, campaignEntrySchema, createSubmissionGuard, type AdSpendEntryValues, type CampaignEntryValues } from "@/domain/manual-entry";
+import type { Campaign } from "@/domain/types";
+
+export function CampaignEntryForm({ enabled }: { enabled: boolean }) {
+  const [open, setOpen] = useState(false); const [pending, startTransition] = useTransition(); const [guard] = useState(createSubmissionGuard);
+  const form = useForm<CampaignEntryValues>({ resolver: zodResolver(campaignEntrySchema), defaultValues: { name: "", channel: "", startsOn: "", endsOn: "", budget: "0", isActive: true } });
+  function save(values: CampaignEntryValues) { if (!enabled || !guard.tryLock()) return; startTransition(async () => { try { const result = await saveCampaignAction(values); if (!result.ok) { toast.error("Campaign was not saved", { description: result.message }); return; } toast.success("Campaign saved"); form.reset(); setOpen(false); } finally { guard.release(); } }); }
+  return <Dialog open={open} onOpenChange={setOpen}><Button variant="outline" disabled={!enabled} onClick={() => setOpen(true)}><Megaphone /> New campaign</Button><DialogContent><DialogHeader><DialogTitle>Create campaign</DialogTitle><DialogDescription>Creates a campaign using the installed authenticated campaign RPC.</DialogDescription></DialogHeader><form id="campaign-entry" className="grid gap-4 sm:grid-cols-2" onSubmit={form.handleSubmit(save)}><Field className="sm:col-span-2"><FieldLabel>Name</FieldLabel><Input {...form.register("name")} /><FieldError errors={[form.formState.errors.name]} /></Field><Field><FieldLabel>Channel</FieldLabel><Input {...form.register("channel")} /></Field><Field><FieldLabel>Budget (BDT)</FieldLabel><Input inputMode="decimal" {...form.register("budget")} /></Field><Field><FieldLabel>Starts on</FieldLabel><Input type="date" {...form.register("startsOn")} /></Field><Field><FieldLabel>Ends on</FieldLabel><Input type="date" {...form.register("endsOn")} /><FieldError errors={[form.formState.errors.endsOn]} /></Field><div className="flex items-center gap-2 sm:col-span-2"><Controller control={form.control} name="isActive" render={({ field }) => <Checkbox id="campaign-active" checked={field.value} onCheckedChange={(value) => field.onChange(value === true)} />} /><FieldLabel htmlFor="campaign-active">Active campaign</FieldLabel></div></form><DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" form="campaign-entry" disabled={pending}><Save />{pending ? "Saving…" : "Save campaign"}</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+export function AdSpendEntryForm({ campaigns, date, enabled }: { campaigns: Campaign[]; date: string; enabled: boolean }) {
+  const [open, setOpen] = useState(false); const [pending, startTransition] = useTransition(); const [guard] = useState(createSubmissionGuard);
+  const form = useForm<AdSpendEntryValues>({ resolver: zodResolver(adSpendEntrySchema), defaultValues: { campaignId: campaigns[0]?.id ?? "", spendDate: date, platform: "", amount: "0", sourceReference: "" } });
+  function save(values: AdSpendEntryValues) { if (!enabled || !guard.tryLock()) return; startTransition(async () => { try { const result = await recordAdSpendAction(values); if (!result.ok) { toast.error("Ad spend was not recorded", { description: result.message }); return; } toast.success("Advertising spend recorded"); form.reset({ ...values, amount: "0", sourceReference: "" }); setOpen(false); } finally { guard.release(); } }); }
+  return <Dialog open={open} onOpenChange={setOpen}><Button disabled={!enabled || campaigns.length === 0} onClick={() => setOpen(true)} title={campaigns.length ? "Record daily ad spend" : "Create a campaign first"}><BadgeDollarSign /> Record ad spend</Button><DialogContent><DialogHeader><DialogTitle>Record daily ad spend</DialogTitle><DialogDescription>Adds one exact-value spend entry to an existing campaign.</DialogDescription></DialogHeader><form id="ad-spend-entry" className="grid gap-4 sm:grid-cols-2" onSubmit={form.handleSubmit(save)}><Field className="sm:col-span-2"><FieldLabel>Campaign</FieldLabel><Controller control={form.control} name="campaignId" render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger className="w-full"><SelectValue placeholder="Choose campaign" /></SelectTrigger><SelectContent>{campaigns.map((campaign) => <SelectItem key={campaign.id} value={campaign.id}>{campaign.name}</SelectItem>)}</SelectContent></Select>} /><FieldError errors={[form.formState.errors.campaignId]} /></Field><Field><FieldLabel>Date</FieldLabel><Input type="date" {...form.register("spendDate")} /></Field><Field><FieldLabel>Platform</FieldLabel><Input placeholder="Meta" {...form.register("platform")} /><FieldError errors={[form.formState.errors.platform]} /></Field><Field><FieldLabel>Amount (BDT)</FieldLabel><Input inputMode="decimal" {...form.register("amount")} /></Field><Field><FieldLabel>Source reference</FieldLabel><Input {...form.register("sourceReference")} /></Field></form><DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" form="ad-spend-entry" disabled={pending}><Save />{pending ? "Saving…" : "Save spend"}</Button></DialogFooter></DialogContent></Dialog>;
+}

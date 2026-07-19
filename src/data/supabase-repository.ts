@@ -27,8 +27,8 @@ import {
   type ReportingPeriod,
 } from "@/domain/reporting-period";
 import type {
-  DashboardData, DashboardFilters, Expense, Money, Order, OrderStatus, PaymentMethod,
-  PaymentStatus, Product, SalesChannel, SettlementStatus,
+  Campaign, DashboardData, DashboardFilters, Expense, Money, Order, OrderStatus, PaymentMethod,
+  PaymentStatus, Product, ProductCategory, SalesChannel, SettlementStatus,
 } from "@/domain/types";
 import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES, SALES_CHANNELS, SETTLEMENT_STATUSES } from "@/domain/types";
 import type { OrderItemRow, OrderRow, ProductBusinessRow, ProductRow } from "@/lib/supabase/database.types";
@@ -94,8 +94,12 @@ export function mapProduct(row: ProductRow, business?: ProductBusinessRow): Prod
   return {
     id: row.id,
     sku: business?.sku_override ?? row.sku ?? row.slug,
+    publicSku: row.sku ?? row.slug,
+    slug: row.slug,
     name: row.name,
     category: row.category_id ?? "Uncategorised",
+    categoryId: row.category_id,
+    isActive: row.is_active ?? false,
     variation: business?.variation ?? "Default",
     buyingPrice: toMoney(business?.buying_price),
     sellingPrice: toMoney(row.price),
@@ -427,6 +431,18 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     return data;
   }
 
+  async getCampaigns(): Promise<Campaign[]> {
+    const { data, error, count } = await this.supabase.from("campaigns")
+      .select("id,name,channel,starts_on,ends_on,budget,is_active", { count: "exact" })
+      .order("name").limit(MAX_LIST_ROWS);
+    if (error || !data) throw new Error("Unable to load campaigns.");
+    assertCompleteResult(count, data.length, MAX_LIST_ROWS, "Campaign list");
+    return data.map((row) => ({
+      id: row.id, name: row.name, channel: row.channel ?? "", startsOn: row.starts_on ?? "",
+      endsOn: row.ends_on ?? "", budget: toMoney(row.budget), isActive: row.is_active,
+    }));
+  }
+
   private async getOperationalRows(period: ReportingPeriod, filters: DashboardFilters, campaignId: string | null) {
     let query = this.supabase.from("orders").select("*", { count: "exact" })
       .gte("order_date", period.startDate)
@@ -524,6 +540,15 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     assertCompleteResult(businessResult.count, businessResult.data.length, MAX_LIST_ROWS, "Private product data");
     const privateByProduct = new Map(businessResult.data.map((row) => [row.product_id, row]));
     return productsResult.data.map((row) => mapProduct(row, privateByProduct.get(row.id)));
+  }
+
+  async getProductCategories(): Promise<ProductCategory[]> {
+    const { data, error, count } = await this.supabase.from("categories")
+      .select("id,name,slug,is_active", { count: "exact" })
+      .order("name").limit(MAX_LIST_ROWS);
+    if (error || !data) throw new Error("Unable to load product categories.");
+    assertCompleteResult(count, data.length, MAX_LIST_ROWS, "Product category list");
+    return data.map((row) => ({ id: row.id, name: row.name, slug: row.slug, isActive: row.is_active ?? false }));
   }
 
   async getOrders(): Promise<Order[]> {

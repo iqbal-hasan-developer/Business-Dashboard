@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { ProductBusinessForm } from "@/components/products/product-business-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney, multiplyMoney } from "@/domain/money";
-import type { Product } from "@/domain/types";
+import type { Product, ProductCategory } from "@/domain/types";
 
-export function ProductsTable({ products, canEditPrivateData }: {
+export function ProductsTable({ products, productCategories, canEditPrivateData }: {
   products: Product[];
+  productCategories: ProductCategory[];
   canEditPrivateData: boolean;
 }) {
   const router = useRouter();
@@ -49,13 +50,13 @@ export function ProductsTable({ products, canEditPrivateData }: {
         {filtered.map((product) => {
           const profit = product.sellingPrice - product.buyingPrice;
           const margin = product.sellingPrice > 0 ? (profit / product.sellingPrice) * 100 : 0;
-          return <TableRow key={product.id}><TableCell><p className="font-medium">{product.name}</p><p className="text-xs text-muted-foreground">{product.sku} · {product.variation}</p></TableCell><TableCell>{product.category}</TableCell><TableCell className="money text-right">{formatMoney(product.buyingPrice)}</TableCell><TableCell className="money text-right">{formatMoney(product.sellingPrice)}</TableCell><TableCell className="text-right"><span className="font-medium">{product.stock}</span><p className="text-xs text-muted-foreground">Reorder {product.reorderLevel}</p></TableCell><TableCell className="money text-right">{formatMoney(multiplyMoney(product.buyingPrice, product.stock))}</TableCell><TableCell className="money text-right text-emerald-700">{formatMoney(profit)}</TableCell><TableCell className="text-right">{margin.toFixed(1)}%</TableCell><TableCell>{product.stock <= product.reorderLevel ? <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700"><AlertTriangle /> Low stock</Badge> : <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Healthy</Badge>}</TableCell><TableCell><ProductBusinessForm product={product} enabled={canEditPrivateData} /></TableCell></TableRow>;
+          return <TableRow key={product.id}><TableCell><p className="font-medium">{product.name}</p><p className="text-xs text-muted-foreground">{product.sku} · {product.variation}</p></TableCell><TableCell>{product.category}</TableCell><TableCell className="money text-right">{formatMoney(product.buyingPrice)}</TableCell><TableCell className="money text-right">{formatMoney(product.sellingPrice)}</TableCell><TableCell className="text-right"><span className="font-medium">{product.stock}</span><p className="text-xs text-muted-foreground">Inventory editing disabled</p></TableCell><TableCell className="money text-right">{formatMoney(multiplyMoney(product.buyingPrice, product.stock))}</TableCell><TableCell className="money text-right text-emerald-700">{formatMoney(profit)}</TableCell><TableCell className="text-right">{margin.toFixed(1)}%</TableCell><TableCell>{product.isActive ? <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Active</Badge> : <Badge variant="outline">Inactive</Badge>}</TableCell><TableCell><ProductBusinessForm product={product} categories={productCategories} enabled={canEditPrivateData} /></TableCell></TableRow>;
         })}
       </TableBody></Table></div>
       <div className="divide-y md:hidden">{filtered.map((product) => {
         const profit = product.sellingPrice - product.buyingPrice;
         const margin = product.sellingPrice > 0 ? (profit / product.sellingPrice) * 100 : 0;
-        return <article className="p-4" key={product.id}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{product.name}</p><p className="mt-1 text-xs text-muted-foreground">{product.sku} · {product.variation}</p></div>{product.stock <= product.reorderLevel ? <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Low</Badge> : <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Healthy</Badge>}</div><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-muted-foreground">Selling / buying</dt><dd className="money mt-1 font-medium">{formatMoney(product.sellingPrice)} / {formatMoney(product.buyingPrice)}</dd></div><div><dt className="text-muted-foreground">Stock / reorder</dt><dd className="mt-1 font-medium">{product.stock} / {product.reorderLevel}</dd></div><div><dt className="text-muted-foreground">Inventory value</dt><dd className="money mt-1 font-medium">{formatMoney(multiplyMoney(product.buyingPrice, product.stock))}</dd></div><div><dt className="text-muted-foreground">Unit profit</dt><dd className="money mt-1 font-medium text-emerald-700">{formatMoney(profit)} · {margin.toFixed(1)}%</dd></div></dl><div className="mt-4"><ProductBusinessForm product={product} enabled={canEditPrivateData} /></div></article>;
+        return <article className="p-4" key={product.id}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{product.name}</p><p className="mt-1 text-xs text-muted-foreground">{product.sku} · {product.variation}</p></div>{product.isActive ? <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Active</Badge> : <Badge variant="outline">Inactive</Badge>}</div><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-muted-foreground">Selling / buying</dt><dd className="money mt-1 font-medium">{formatMoney(product.sellingPrice)} / {formatMoney(product.buyingPrice)}</dd></div><div><dt className="text-muted-foreground">Stock</dt><dd className="mt-1 font-medium">{product.stock} · editing disabled</dd></div><div><dt className="text-muted-foreground">Inventory value</dt><dd className="money mt-1 font-medium">{formatMoney(multiplyMoney(product.buyingPrice, product.stock))}</dd></div><div><dt className="text-muted-foreground">Unit profit</dt><dd className="money mt-1 font-medium text-emerald-700">{formatMoney(profit)} · {margin.toFixed(1)}%</dd></div></dl><div className="mt-4"><ProductBusinessForm product={product} categories={productCategories} enabled={canEditPrivateData} /></div></article>;
       })}</div>
     </div>}
   </>;

@@ -27,9 +27,14 @@ describe("development Supabase connection contracts", () => {
     const rpcNames = [...new Set([...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]))].sort();
     expect(rpcNames).toEqual([
       "create_dashboard_order",
+      "create_dashboard_product",
       "get_dashboard_financial_summary",
+      "record_daily_ad_spend",
+      "record_expense",
       "set_product_buying_cost",
       "transition_dashboard_order",
+      "update_dashboard_product",
+      "upsert_campaign",
     ]);
     expect(source).not.toMatch(/record_dashboard_(refund|return)/i);
     expect(source).not.toMatch(/\.update\s*\([^)]*stock/i);

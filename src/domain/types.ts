@@ -34,14 +34,35 @@ export type Money = number;
 export interface Product {
   id: string;
   sku: string;
+  publicSku?: string;
+  slug?: string;
   name: string;
   category: string;
+  categoryId?: string | null;
+  isActive?: boolean;
   variation: string;
   buyingPrice: Money;
   sellingPrice: Money;
   stock: number;
   reorderLevel: number;
   internalNotes?: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  channel: string;
+  startsOn: string;
+  endsOn: string;
+  budget: Money;
+  isActive: boolean;
 }
 
 export interface OrderItem {

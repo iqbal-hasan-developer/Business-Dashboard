@@ -42,6 +42,55 @@ const moneyInput = z
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid business date");
 
+export const productCatalogSchema = z.object({
+  productId: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Product name is required").max(180),
+  slug: z.string().trim().min(2, "Slug is required").max(180)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens"),
+  publicSku: z.string().trim().min(1, "SKU is required").max(120),
+  sellingPrice: moneyInput,
+  isActive: z.boolean(),
+  categoryId: z.string().uuid().nullable(),
+  buyingPrice: moneyInput,
+  reorderLevel: z.number().int().min(0).max(1_000_000),
+  dashboardSku: z.string().trim().max(120),
+  variation: z.string().trim().max(160),
+  internalNotes: z.string().trim().max(1_000),
+});
+
+export const expenseEntrySchema = z.object({
+  expenseDate: isoDate,
+  categoryKey: z.string().trim().min(2, "Category is required").max(80),
+  description: z.string().trim().min(2, "Description is required").max(500),
+  amount: moneyInput.refine((value) => parseMoney(value) > 0, "Amount must be greater than zero"),
+  paymentMethod: z.string().trim().max(80),
+  campaignId: z.string().uuid().nullable(),
+  salesChannel: z.string().trim().max(100),
+  reference: z.string().trim().max(160),
+});
+
+export const campaignEntrySchema = z.object({
+  campaignId: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Campaign name is required").max(160),
+  channel: z.string().trim().max(100),
+  startsOn: isoDate.or(z.literal("")),
+  endsOn: isoDate.or(z.literal("")),
+  budget: moneyInput,
+  isActive: z.boolean(),
+}).superRefine((value, context) => {
+  if (value.startsOn && value.endsOn && value.endsOn < value.startsOn) {
+    context.addIssue({ code: "custom", path: ["endsOn"], message: "End date cannot precede start date" });
+  }
+});
+
+export const adSpendEntrySchema = z.object({
+  campaignId: z.string().uuid("Choose a campaign"),
+  spendDate: isoDate,
+  platform: z.string().trim().min(2, "Platform is required").max(100),
+  amount: moneyInput,
+  sourceReference: z.string().trim().max(160),
+});
+
 const manualOrderFields = {
   orderNumber: z.string().trim().min(3, "Order number is required").max(80),
   externalReference: z.string().trim().max(120),
@@ -96,6 +145,10 @@ export const orderTransitionSchema = z.object({
 
 export type ManualOrderValues = z.infer<typeof manualOrderSchema>;
 export type ProductBusinessValues = z.infer<typeof productBusinessSchema>;
+export type ProductCatalogValues = z.infer<typeof productCatalogSchema>;
+export type ExpenseEntryValues = z.infer<typeof expenseEntrySchema>;
+export type CampaignEntryValues = z.infer<typeof campaignEntrySchema>;
+export type AdSpendEntryValues = z.infer<typeof adSpendEntrySchema>;
 export type OrderTransitionValues = z.infer<typeof orderTransitionSchema>;
 
 export type ManualOrderRpcArgs = {
