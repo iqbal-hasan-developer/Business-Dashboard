@@ -913,20 +913,28 @@ select is(
   'recognition and refunds do not change inventory'
 );
 
+update public.order_items
+set product_id = '82100000-0000-4000-8000-000000000002'
+where id = '82400000-0000-4000-8000-000000000007';
+
 set local role authenticated;
 select throws_ok(
   $$select * from public.get_dashboard_product_financials(
-    '2026-07-17', '2026-07-17', 'Website', null, 'Delivered',
-    null, null, 100, 0
+    (now() at time zone 'Asia/Dhaka')::date,
+    (now() at time zone 'Asia/Dhaka')::date,
+    'Website', null, 'Delivered',
+    '82100000-0000-4000-8000-000000000001', null, 100, 0
   )$$,
   '23514',
   'Product financials contain refund evidence marked needs_review.',
-  'authoritative product reporting fails closed for ambiguous legacy refunds'
+  'authoritative product reporting uses immutable product scope and fails closed for ambiguous legacy refunds'
 );
 select is(
   (
     select count(*) from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp',
       '82200000-0000-4000-8000-000000000001', 'Delivered',
       null, null, 100, 0
     )
@@ -943,7 +951,9 @@ select is(
       sum(returned_units)::bigint
     )
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp',
       '82200000-0000-4000-8000-000000000001', 'Delivered',
       null, null, 100, 0
     )
@@ -958,7 +968,9 @@ select is(
   (
     select row(recognized_cogs, gross_profit, contribution_profit)
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp', null, 'Delivered',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp', null, 'Delivered',
       '82100000-0000-4000-8000-000000000001', null, 100, 0
     )
   ),
@@ -969,7 +981,9 @@ select ok(
   (select recognized_cogs is null and gross_profit is null
      and contribution_profit is null
    from public.get_dashboard_product_financials(
-     '2026-07-17', '2026-07-17', 'WhatsApp', null, 'Delivered',
+     (now() at time zone 'Asia/Dhaka')::date,
+     (now() at time zone 'Asia/Dhaka')::date,
+     'WhatsApp', null, 'Delivered',
      '82100000-0000-4000-8000-000000000002', null, 100, 0
    )),
   'unknown COGS keeps product profit measures NULL'
@@ -981,7 +995,9 @@ select is(
       recognized_cogs, gross_profit, contribution_profit
     )
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'ReturnQA', null, 'Delivered',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'ReturnQA', null, 'Delivered',
       '82100000-0000-4000-8000-000000000001', null, 100, 0
     )
   ),

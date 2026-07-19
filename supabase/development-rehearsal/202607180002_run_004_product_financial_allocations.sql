@@ -12,73 +12,101 @@ end
 $development_gate$;
 
 begin;
+create temporary table pgtap_004_result_buffer (
+  result_order bigint generated always as identity primary key,
+  tap_result text not null
+) on commit drop;
+
+grant insert (tap_result)
+on table pg_temp.pgtap_004_result_buffer
+to authenticated;
+
+grant usage
+on sequence pg_temp.pgtap_004_result_buffer_result_order_seq
+to authenticated;
+
 set local search_path = public, extensions, pg_catalog;
 select no_plan();
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'order_item_financial_allocations',
   'immutable item recognition allocations table exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'order_item_refund_allocations',
   'immutable scoped item refund allocations table exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'order_return_events',
   'return events are separate from monetary refund adjustments'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'order_item_return_allocations',
   'immutable item return allocations table exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'order_return_inspections',
   'owner/admin return inspections are immutable and exactly once'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_table(
   'public', 'inventory_restoration_movements',
   'immutable inventory-restoration movement table exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_view(
   'public', 'dashboard_product_allocation_reconciliation',
   'product allocation reconciliation view exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_view(
   'public', 'dashboard_product_allocation_data_quality',
   'product allocation data-quality view exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_function(
   'public', 'get_dashboard_product_financials',
   array['date', 'date', 'text', 'uuid', 'text', 'uuid', 'text',
     'integer', 'integer'],
   'authenticated product reporting RPC exists'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_function(
   'public', 'record_dashboard_refund',
   array['uuid', 'numeric', 'text', 'text', 'date', 'jsonb'],
   'authenticated monetary refund RPC has no return parameters'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_function(
   'public', 'record_dashboard_return',
   array['uuid', 'text', 'text', 'date', 'jsonb'],
   'authenticated return event RPC is separate from refunds'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select has_function(
   'public', 'inspect_dashboard_return',
   array['uuid', 'text', 'text', 'date'],
   'authenticated inspection action is separate and exactly once'
 );
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select relrowsecurity from pg_class
    where oid = 'public.order_item_financial_allocations'::regclass),
   'item recognition allocations have RLS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select relrowsecurity from pg_class
    where oid = 'public.order_item_refund_allocations'::regclass),
   'item refund allocations have RLS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select relrowsecurity from pg_class
    where oid = 'public.order_item_return_allocations'::regclass)
@@ -90,6 +118,7 @@ select ok(
    where oid = 'public.inventory_restoration_movements'::regclass),
   'return and restoration ledgers have RLS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   not has_table_privilege(
     'anon', 'public.order_item_financial_allocations', 'SELECT'
@@ -110,6 +139,7 @@ select ok(
   ),
   'anon cannot read allocations or buying costs'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   has_table_privilege(
     'authenticated', 'public.order_item_financial_allocations', 'SELECT'
@@ -120,6 +150,7 @@ select ok(
   ),
   'authenticated clients have read-only grants subject to role RLS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   not has_table_privilege(
     'service_role', 'public.order_financial_snapshots', 'SELECT'
@@ -142,12 +173,14 @@ select ok(
   ),
   'service role has no direct immutable-ledger privilege'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   has_table_privilege('service_role', 'public.orders', 'INSERT')
     and has_table_privilege('service_role', 'public.orders', 'UPDATE')
     and has_table_privilege('service_role', 'public.order_items', 'INSERT'),
   'service-role Website checkout retains operational order and item grants'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   has_function_privilege(
     'service_role',
@@ -160,6 +193,7 @@ select ok(
   ),
   'service-role Website status writes retain SECURITY DEFINER trigger execution'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   has_function_privilege(
     'authenticated',
@@ -172,11 +206,13 @@ select ok(
   ),
   'authenticated order workflows retain trigger execution without ledger writes'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select prosecdef from pg_proc where oid =
     'public.dashboard_capture_delivered_snapshot()'::regprocedure),
   'Website status updates reach a SECURITY DEFINER recognition trigger'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   not exists (
     select 1
@@ -226,6 +262,7 @@ select ok(
   ),
   'authenticated reporting has only the required helper and RPC execute grants'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   not has_function_privilege(
     'anon',
@@ -242,6 +279,7 @@ select ok(
   ),
   'refund RPC is authenticated-only and excludes service role'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   not has_function_privilege(
     'anon', 'public.record_dashboard_return(uuid,text,text,date,jsonb)',
@@ -258,6 +296,7 @@ select ok(
   ),
   'return and inspection RPCs are authenticated-only and role-gated'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   procedure.prosecdef
     -- Empty GUC values may be catalogued as search_path=""; parse the value.
@@ -287,16 +326,19 @@ from pg_proc as procedure
 where procedure.oid =
   'public.get_dashboard_product_financials(date,date,text,uuid,text,uuid,text,integer,integer)'::regprocedure;
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   public.dashboard_money_to_poisha(123.45),
   12345::bigint,
   'money converts to exact integer poisha'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.dashboard_money_to_poisha(0.001)$$,
   '22023', 'Money must have at most two decimal places.',
   'fractional poisha is rejected'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select results_eq(
   $$
     select allocation_key, allocated_poisha
@@ -478,12 +520,14 @@ where id in (
 );
 set constraints dashboard_capture_delivered_snapshot immediate;
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_financial_snapshots
    where order_id = '82300000-0000-4000-8000-000000000003'),
   0::bigint,
   'cancelled prepaid order has no recognized revenue or COGS snapshot'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000003'),
@@ -491,18 +535,21 @@ select is(
   'cancelled prepaid order has no delivered units'
 );
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000001'),
   2::bigint,
   'Delivered recognition creates one immutable allocation per item'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_item_financial_allocations
    where order_id = '82300000-0000-4000-8000-000000000002'),
   0::bigint,
   'non-Delivered orders create no product allocations'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select sum(gross_product_revenue_poisha)::bigint
    from public.order_item_financial_allocations
@@ -510,6 +557,7 @@ select is(
   200::bigint,
   'Gross Product Revenue excludes delivery and reconciles exactly'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select sum(delivery_revenue_poisha)::bigint
    from public.order_item_financial_allocations
@@ -517,6 +565,7 @@ select is(
   1::bigint,
   'Allocated Delivery Revenue reconciles exactly'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select row(
      sum(product_discount_poisha)::bigint,
@@ -527,6 +576,7 @@ select is(
   row(1::bigint, 0::bigint),
   'discount is deterministic and product-first before delivery'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   exists (
     select 1 from public.order_item_financial_allocations
@@ -537,6 +587,7 @@ select ok(
   'mixed quantity and unknown COGS/fulfillment remain explicit NULL'
 );
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   exists (
     select 1 from public.dashboard_user_profiles
@@ -552,6 +603,7 @@ select set_config(
 );
 set local role authenticated;
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.02,
@@ -559,6 +611,7 @@ select lives_ok(
   )$$,
   'product-only proportional fallback refund succeeds'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select sum(delivery_refund_poisha)::bigint
    from public.order_item_refund_allocations
@@ -566,6 +619,7 @@ select is(
   0::bigint,
   'product-only fallback does not silently refund delivery'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.02,
@@ -575,6 +629,7 @@ select lives_ok(
   )$$,
   'explicit item-level product refund succeeds when product is known'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.01,
@@ -582,6 +637,7 @@ select lives_ok(
   )$$,
   'delivery refund succeeds only with explicit delivery scope'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select sum(delivery_refund_poisha)::bigint
    from public.order_item_refund_allocations
@@ -589,6 +645,7 @@ select is(
   1::bigint,
   'delivery-scoped refund consumes only delivery capacity'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.02,
@@ -596,6 +653,7 @@ select lives_ok(
   )$$,
   'an exact idempotent retry returns the original adjustment without duplication'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_financial_adjustments
    where order_id = '82300000-0000-4000-8000-000000000001'
@@ -603,6 +661,7 @@ select is(
   1::bigint,
   'an exact retry leaves one append-only refund event'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.03,
@@ -612,6 +671,7 @@ select throws_ok(
   'The refund idempotency key is already used by a different request.',
   'a conflicting reuse of an idempotency key is rejected atomically'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', -0.01,
@@ -620,6 +680,7 @@ select throws_ok(
   '22023', 'A positive refund and idempotency key are required.',
   'negative refunds are rejected'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 1.00,
@@ -629,6 +690,7 @@ select throws_ok(
   '23514', 'An explicit refund exceeds the item remaining scoped revenue.',
   'explicit item over-allocation is rejected even when order capacity remains'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 1.95,
@@ -637,12 +699,14 @@ select lives_ok(
   'full-order refund consumes all remaining product and delivery revenue'
 );
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select net_revenue from public.dashboard_order_financials
    where order_id = '82300000-0000-4000-8000-000000000001'),
   0.00::numeric,
   'full refund reduces adjusted order Net Revenue to exactly zero'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000001', 0.01,
@@ -652,6 +716,7 @@ select throws_ok(
   'Product-only refund exceeds remaining recognized product revenue.',
   'over-refunds are rejected atomically'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000007', 1.00,
@@ -659,6 +724,7 @@ select lives_ok(
   )$$,
   'full refund without return succeeds'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000004', 2.00,
@@ -666,6 +732,7 @@ select lives_ok(
   )$$,
   'resellable order monetary refund is a separate business event'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_return(
     '82300000-0000-4000-8000-000000000004',
@@ -674,6 +741,7 @@ select lives_ok(
   )$$,
   'resellable product return records explicit returned units'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_return(
     '82300000-0000-4000-8000-000000000004',
@@ -682,18 +750,21 @@ select lives_ok(
   )$$,
   'exact return retry is idempotent and creates no second event'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.inventory_restoration_movements
    where order_id = '82300000-0000-4000-8000-000000000004'),
   0::bigint,
   'recording a resellable return does not automatically restore inventory'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select recognized_cogs from public.dashboard_order_financials
    where order_id = '82300000-0000-4000-8000-000000000004'),
   0.80::numeric,
   'COGS remains recognized until the later resellable inspection action'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.inspect_dashboard_return(
     (select id from public.order_return_events
@@ -702,6 +773,7 @@ select lives_ok(
   )$$,
   'later owner/admin inspection creates exactly-once restoration evidence'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.inspect_dashboard_return(
     (select id from public.order_return_events
@@ -710,6 +782,7 @@ select lives_ok(
   )$$,
   'exact inspection retry returns the original action without duplication'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000005', 0.50,
@@ -717,6 +790,7 @@ select lives_ok(
   )$$,
   'damaged order monetary refund is separate from its return'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_return(
     '82300000-0000-4000-8000-000000000005',
@@ -725,6 +799,7 @@ select lives_ok(
   )$$,
   'damaged product return records returned units without restock'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.record_dashboard_return(
     '82300000-0000-4000-8000-000000000005',
@@ -734,6 +809,7 @@ select throws_ok(
   '23514', 'Returned quantity exceeds immutable delivered quantity.',
   'sequential over-return is rejected under the order/snapshot mutex'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_refund(
     '82300000-0000-4000-8000-000000000005', 1.50,
@@ -741,6 +817,7 @@ select lives_ok(
   )$$,
   'remaining damaged monetary refund succeeds independently'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.record_dashboard_return(
     '82300000-0000-4000-8000-000000000005',
@@ -749,6 +826,7 @@ select lives_ok(
   )$$,
   'remaining damaged return can be recorded exactly once'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.inspect_dashboard_return(
     (select id from public.order_return_events
@@ -757,6 +835,7 @@ select lives_ok(
   )$$,
   'damaged return inspection closes without restoration movement'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select lives_ok(
   $$select public.inspect_dashboard_return(
     (select id from public.order_return_events
@@ -765,6 +844,7 @@ select lives_ok(
   )$$,
   'second damaged return inspection also creates no restoration'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select public.inspect_dashboard_return(
     (select id from public.order_return_events
@@ -776,24 +856,28 @@ select throws_ok(
 );
 reset role;
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select row(net_revenue, recognized_cogs) from public.dashboard_order_financials
    where order_id = '82300000-0000-4000-8000-000000000007'),
   row(0.00::numeric, 0.40::numeric),
   'full refund without return reverses revenue and retains COGS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select row(net_revenue, recognized_cogs) from public.dashboard_order_financials
    where order_id = '82300000-0000-4000-8000-000000000004'),
   row(0.00::numeric, 0.00::numeric),
   'resellable return reverses scoped revenue and supported COGS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select row(net_revenue, recognized_cogs) from public.dashboard_order_financials
    where order_id = '82300000-0000-4000-8000-000000000005'),
   row(0.00::numeric, 0.80::numeric),
   'damaged return reverses scoped revenue and retains COGS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select coalesce(sum(quantity_delta)::bigint, 0::bigint)
    from public.inventory_restoration_movements
@@ -801,6 +885,7 @@ select is(
   2::bigint,
   'resellable return creates an immutable inventory-restoration movement'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.inventory_restoration_movements
    where order_id = '82300000-0000-4000-8000-000000000005'),
@@ -814,6 +899,7 @@ set refund_amount = 0.50,
     return_disposition = null,
     refund_review_status = 'needs_review'
 where id = '82300000-0000-4000-8000-000000000006';
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   exists (
     select 1 from public.order_financial_adjustments
@@ -824,6 +910,7 @@ select ok(
   ),
   'ambiguous legacy refund is quarantined without inferred scope or disposition'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select count(*) from public.order_item_refund_allocations
    where order_id = '82300000-0000-4000-8000-000000000006'),
@@ -831,6 +918,7 @@ select is(
   'ambiguous legacy refund is not silently allocated to products or delivery'
 );
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$
     update public.orders set refund_amount = 1.99
@@ -839,6 +927,7 @@ select throws_ok(
   '23514', 'Recognized refunds cannot be reduced or deleted.',
   'refund reductions are rejected'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$
     update public.order_item_financial_allocations
@@ -860,6 +949,7 @@ values ('pgtap_financial_default', '999.99'::jsonb);
 update public.order_items
 set actual_unit_selling_price = 777.77, quantity = 3
 where id = '82400000-0000-4000-8000-000000000001';
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select row(gross_product_revenue_poisha, quantity, cogs_poisha)
    from public.order_item_financial_allocations
@@ -871,18 +961,21 @@ update public.order_items
 set actual_unit_selling_price = 1.00, quantity = 1
 where id = '82400000-0000-4000-8000-000000000001';
 
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select all_reconciled
    from public.dashboard_product_allocation_reconciliation
    where order_id = '82300000-0000-4000-8000-000000000001'),
   'product allocations reconcile to immutable snapshots and adjusted Net Revenue'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select refund_events_needing_review
    from public.dashboard_product_allocation_data_quality),
   1::bigint,
   'the single ambiguous legacy refund appears in data-quality reporting'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select overallocated_product_refund_items
@@ -898,6 +991,7 @@ select is(
   0::bigint,
   'scoped refunds, returns, COGS reversals, and restoration movements reconcile'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   position(
     'for update' in lower(pg_get_functiondef(
@@ -918,6 +1012,7 @@ select ok(
   ),
   'row locking and the unique idempotency index protect concurrent refund/return writes'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (select stock from public.products
    where id = '82100000-0000-4000-8000-000000000001'),
@@ -925,20 +1020,30 @@ select is(
   'recognition and refunds do not change inventory'
 );
 
+update public.order_items
+set product_id = '82100000-0000-4000-8000-000000000002'
+where id = '82400000-0000-4000-8000-000000000007';
+
 set local role authenticated;
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select throws_ok(
   $$select * from public.get_dashboard_product_financials(
-    '2026-07-17', '2026-07-17', 'Website', null, 'Delivered',
-    null, null, 100, 0
+    (now() at time zone 'Asia/Dhaka')::date,
+    (now() at time zone 'Asia/Dhaka')::date,
+    'Website', null, 'Delivered',
+    '82100000-0000-4000-8000-000000000001', null, 100, 0
   )$$,
   '23514',
   'Product financials contain refund evidence marked needs_review.',
-  'authoritative product reporting fails closed for ambiguous legacy refunds'
+  'authoritative product reporting uses immutable product scope and fails closed for ambiguous legacy refunds'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select count(*) from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp',
       '82200000-0000-4000-8000-000000000001', 'Delivered',
       null, null, 100, 0
     )
@@ -946,6 +1051,7 @@ select is(
   2::bigint,
   'date, channel, campaign, and Delivered filters return product rows'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select row(
@@ -955,7 +1061,9 @@ select is(
       sum(returned_units)::bigint
     )
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp',
       '82200000-0000-4000-8000-000000000001', 'Delivered',
       null, null, 100, 0
     )
@@ -966,26 +1074,33 @@ select is(
   ),
   'Top Products exposes distinct revenue, delivery, discount, refund, net, delivered, and returned measures'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select row(recognized_cogs, gross_profit, contribution_profit)
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'WhatsApp', null, 'Delivered',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'WhatsApp', null, 'Delivered',
       '82100000-0000-4000-8000-000000000001', null, 100, 0
     )
   ),
   row(0.40::numeric, -0.40::numeric, null::numeric),
   'refunds reverse revenue only while COGS remains recognized and fulfillment NULL propagates'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select ok(
   (select recognized_cogs is null and gross_profit is null
      and contribution_profit is null
    from public.get_dashboard_product_financials(
-     '2026-07-17', '2026-07-17', 'WhatsApp', null, 'Delivered',
+     (now() at time zone 'Asia/Dhaka')::date,
+     (now() at time zone 'Asia/Dhaka')::date,
+     'WhatsApp', null, 'Delivered',
      '82100000-0000-4000-8000-000000000002', null, 100, 0
    )),
   'unknown COGS keeps product profit measures NULL'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select row(
@@ -993,7 +1108,9 @@ select is(
       recognized_cogs, gross_profit, contribution_profit
     )
     from public.get_dashboard_product_financials(
-      '2026-07-17', '2026-07-17', 'ReturnQA', null, 'Delivered',
+      (now() at time zone 'Asia/Dhaka')::date,
+      (now() at time zone 'Asia/Dhaka')::date,
+      'ReturnQA', null, 'Delivered',
       '82100000-0000-4000-8000-000000000001', null, 100, 0
     )
   ),
@@ -1003,6 +1120,7 @@ select is(
   ),
   'Top Products preserves delivered units and separately reports returned units and net COGS'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select count(*) from public.get_dashboard_product_financials(
@@ -1013,6 +1131,7 @@ select is(
   0::bigint,
   'non-Delivered status filters return no recognized product financials'
 );
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
 select is(
   (
     select count(*) from public.get_dashboard_product_financials(
@@ -1025,5 +1144,27 @@ select is(
 );
 reset role;
 
-select * from finish();
+insert into pg_temp.pgtap_004_result_buffer (tap_result)
+select finish_output.tap_output
+from finish() with ordinality as finish_output(tap_output, finish_order)
+order by finish_output.finish_order;
+
+with expanded_tap_output as (
+  select
+    buffered_output.result_order as buffered_result_order,
+    output_line.line_order,
+    output_line.tap_result
+  from pg_temp.pgtap_004_result_buffer as buffered_output
+  cross join lateral pg_catalog.regexp_split_to_table(
+    buffered_output.tap_result,
+    E'\r?\n'
+  ) with ordinality as output_line(tap_result, line_order)
+)
+select
+  row_number() over (
+    order by buffered_result_order, line_order
+  )::bigint as result_order,
+  tap_result
+from expanded_tap_output
+order by buffered_result_order, line_order;
 rollback;

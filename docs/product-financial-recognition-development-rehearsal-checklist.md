@@ -109,7 +109,11 @@ that file's single breadcrumb sentinel.
    Require every check and `all_checks_passed` to be `true`.
 2. Confirm pgTAP is already available. If absent, stop. Then run
    `supabase/development-rehearsal/202607180002_run_004_product_financial_allocations.sql`.
-   Require all 90 assertions to pass and the transaction to reach `ROLLBACK`.
+   Before execution, set the SQL Editor result limit to at least **1,000**.
+   Require the single ordered `result_order` / `tap_result` grid to contain all
+   90 assertions, final plan `1..90`, and the transaction to reach `ROLLBACK`.
+   If any test fails, export the complete result grid and stop; do not run the
+   controlled fixtures.
 3. Run
    `supabase/development-rehearsal/202607180003_run_product_financial_fixtures.sql`.
    Require exact reconciliation, unchanged inventory, and final `ROLLBACK`.
@@ -180,9 +184,74 @@ unexpected Remote-only timestamp, seed, role application, warning, or error.
    Require every check and `all_checks_passed` to be `true`.
 2. In another new query, rerun only
    `supabase/development-rehearsal/202607180002_run_004_product_financial_allocations.sql`.
-   Require all 90 assertions and final plan `1..90` to pass through `ROLLBACK`.
+   Set the SQL Editor result limit to at least **1,000** before execution.
+   Require the single ordered `result_order` / `tap_result` grid to contain all
+   90 assertions and final plan `1..90` through `ROLLBACK`. If any test fails,
+   export the complete result grid and stop.
 3. Stop and return both results. Do not run the controlled fixtures until those
    results receive review.
+
+## Pending immutable product-reporting scope follow-up
+
+The first observable pgTAP result proved that tests 83-88 filtered the original
+order date rather than the immutable recognition date captured in Asia/Dhaka.
+Those test inputs now derive the transaction-stable recognition date without
+changing any financial expectation. The same audit found that the RPC's
+ambiguous-refund product/SKU guard used mutable `order_items`, while its report
+rows use immutable allocation snapshots. Migration `202607190000` aligns only
+that guard and changes no data, table privilege, RLS policy, or inventory.
+
+### I. Read-only product-reporting scope preflight
+
+1. Open a new SQL Editor query whose visible breadcrumb says exactly
+   **NexaNotion Business Dashboard Dev**.
+2. Run only
+   `supabase/development-rehearsal/202607190001_read_only_product_reporting_scope_preflight.sql`.
+3. Replace its single breadcrumb sentinel and run it once.
+4. Require every check and `followup_application_allowed` to be `true`, with
+   every `stop_required` value `false`.
+5. Stop and return the result before any linked CLI command.
+
+### J. Checkpoint and dry run after separate approval
+
+After the preflight is reviewed, create a narrow local checkpoint containing
+the pending migration, its preflight/verifier, pgTAP source/wrapper, static
+contracts, and this checklist. Reconfirm a clean tree, exact hashes, CLI version,
+and the linked development identity, then run only:
+
+```powershell
+supabase migration list --linked
+supabase db push --dry-run --linked
+```
+
+Require exactly one pending migration:
+`202607190000_product_reporting_ambiguous_refund_scope.sql`. Stop and return the
+sanitized dry-run result; the dry-run approval does not authorize application.
+
+### K. Apply after a second separate approval
+
+Only after the exact dry run is approved, reconfirm the migration list and run:
+
+```powershell
+supabase db push --linked
+```
+
+Immediately run `supabase migration list --linked` again and require
+`202607190000` in both Local and Remote with no unexpected timestamp. Then stop
+all database mutation work.
+
+### L. Verify and rerun pgTAP
+
+1. In a new SQL Editor query, run only
+   `supabase/development-rehearsal/202607190002_verify_product_reporting_scope.sql`.
+   Require every check and `all_checks_passed` to be `true`.
+2. In another new query, set the SQL Editor result limit to at least **1,000**
+   and run only
+   `supabase/development-rehearsal/202607180002_run_004_product_financial_allocations.sql`.
+3. Require all 90 assertions, final plan `1..90`, and final `ROLLBACK`. Export
+   the complete ordered result grid if any test fails.
+4. Stop and return both results. Controlled fixtures remain blocked until the
+   verifier and pgTAP rerun receive review.
 
 ## Preflight stop conditions
 
@@ -241,6 +310,10 @@ Both test wrappers start a transaction and end with `ROLLBACK`. The controlled
 fixture refuses reserved-identifier collisions before inserting synthetic data.
 The cleanup verifier is read-only and independently proves no fixture row or
 related audit/financial evidence persisted.
+
+The pgTAP SQL Editor wrapper buffers TAP output only in a transaction-local
+temporary table, expands multiline diagnostics into deterministic row order,
+and returns one exportable result grid before `ROLLBACK` removes the buffer.
 
 ## Prohibited actions
 

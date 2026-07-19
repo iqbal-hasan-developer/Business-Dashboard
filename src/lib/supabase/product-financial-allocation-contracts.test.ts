@@ -13,6 +13,9 @@ const canonical = read(
 const reportingHelperAclMigration = read(
   "supabase/migrations/202607180000_authenticated_reporting_helper_execute.sql",
 );
+const productReportingScopeMigration = read(
+  "supabase/migrations/202607190000_product_reporting_ambiguous_refund_scope.sql",
+);
 const review = read("docs/product-financial-recognition-contract-review.md");
 const pgTap = read("supabase/tests/database/004_product_financial_allocations.test.sql");
 const fixtures = read(
@@ -39,6 +42,12 @@ const reportingHelperAclPreflight = read(
 const reportingHelperAclVerifier = read(
   "supabase/development-rehearsal/202607180006_verify_reporting_helper_acl.sql",
 );
+const productReportingScopePreflight = read(
+  "supabase/development-rehearsal/202607190001_read_only_product_reporting_scope_preflight.sql",
+);
+const productReportingScopeVerifier = read(
+  "supabase/development-rehearsal/202607190002_verify_product_reporting_scope.sql",
+);
 const rehearsalChecklist = read(
   "docs/product-financial-recognition-development-rehearsal-checklist.md",
 );
@@ -46,6 +55,7 @@ const completeContract = [
   proposal,
   canonical,
   reportingHelperAclMigration,
+  productReportingScopeMigration,
   review,
   pgTap,
   fixtures,
@@ -56,6 +66,8 @@ const completeContract = [
   cleanup,
   reportingHelperAclPreflight,
   reportingHelperAclVerifier,
+  productReportingScopePreflight,
+  productReportingScopeVerifier,
   rehearsalChecklist,
 ].join("\n");
 const stripSqlComments = (sql: string) =>
@@ -67,6 +79,48 @@ const transactionBody = (sql: string) => {
   const start = sql.search(/^begin;\s*$/im);
   return start === -1 ? "" : sql.slice(start);
 };
+const normalizeSqlWhitespace = (sql: string) =>
+  sql.replace(/\s+/g, " ").trim();
+const productReportingRpcDefinition = (sql: string) => {
+  const start = sql.indexOf(
+    "create or replace function public.get_dashboard_product_financials(",
+  );
+  const end = sql.indexOf("$function$;", start);
+  return start === -1 || end === -1
+    ? ""
+    : sql.slice(start, end + "$function$;".length);
+};
+const pgTapAssertionFunctions = [
+  "has_table",
+  "has_view",
+  "has_function",
+  "ok",
+  "is",
+  "throws_ok",
+  "lives_ok",
+  "results_eq",
+];
+const pgTapAssertionFunctionPattern = pgTapAssertionFunctions.join("|");
+const pgTapAssertionPattern = new RegExp(
+  `^select\\s+(?:${pgTapAssertionFunctionPattern})\\s*\\(`,
+  "gim",
+);
+const pgTapCapturePrefixPattern = new RegExp(
+  `^insert into pg_temp\\.pgtap_004_result_buffer \\(tap_result\\)\\r?\\n(?=select\\s+(?:${pgTapAssertionFunctionPattern})\\s*\\()`,
+  "gim",
+);
+const observableWrapperTransactionBody = (sql: string) =>
+  transactionBody(sql)
+    .replace(/\r\n/g, "\n")
+    .replace(
+      /^begin;\ncreate temporary table pgtap_004_result_buffer \([\s\S]*?\n\) on commit drop;\n\n(?:grant[\s\S]*?;\n\n)+/i,
+      "begin;\n",
+    )
+    .replace(pgTapCapturePrefixPattern, "")
+    .replace(
+      /insert into pg_temp\.pgtap_004_result_buffer \(tap_result\)\nselect finish_output\.tap_output\nfrom finish\(\) with ordinality[\s\S]*?(?=rollback;\s*$)/i,
+      "select * from finish();\n",
+    );
 
 describe("review-only product financial recognition contract", () => {
   it("stays development-only and separates migration audit from repair", () => {
@@ -319,20 +373,6 @@ describe("review-only product financial recognition contract", () => {
   });
 
   it("keeps all 90 pgTAP assertions in parity with exact numeric types", () => {
-    const assertionFunctions = [
-      "has_table",
-      "has_view",
-      "has_function",
-      "ok",
-      "is",
-      "throws_ok",
-      "lives_ok",
-      "results_eq",
-    ];
-    const assertionPattern = new RegExp(
-      `^select\\s+(?:${assertionFunctions.join("|")})\\s*\\(`,
-      "gim",
-    );
     const bigintAggregateColumns = [
       "gross_product_revenue_poisha",
       "delivery_revenue_poisha",
@@ -344,11 +384,13 @@ describe("review-only product financial recognition contract", () => {
       "returned_units",
     ];
 
-    expect(pgTap.match(assertionPattern) ?? []).toHaveLength(90);
+    expect(pgTap.match(pgTapAssertionPattern) ?? []).toHaveLength(90);
     expect(pgTap).toContain("select no_plan();");
     expect(pgTap.trimEnd()).toMatch(/select \* from finish\(\);\s*rollback;$/i);
     expect(transactionBody(pgTap)).not.toBe("");
-    expect(transactionBody(pgTapWrapper)).toBe(transactionBody(pgTap));
+    expect(observableWrapperTransactionBody(pgTapWrapper)).toBe(
+      transactionBody(pgTap).replace(/\r\n/g, "\n"),
+    );
 
     for (const column of bigintAggregateColumns) {
       expect(
@@ -373,6 +415,200 @@ describe("review-only product financial recognition contract", () => {
     }
 
     expect(pgTap).not.toMatch(/\b(real|double precision|float\d*)\b/i);
+  });
+
+  it("scopes authoritative product-report tests to the recognition business date", () => {
+    const reportingAssertions = pgTap.slice(
+      pgTap.lastIndexOf("set local role authenticated;"),
+      pgTap.lastIndexOf("reset role;"),
+    );
+    const recognitionDateExpression =
+      "(now() at time zone 'Asia/Dhaka')::date";
+
+    expect(
+      reportingAssertions.match(
+        /\(now\(\) at time zone 'Asia\/Dhaka'\)::date/g,
+      ) ?? [],
+    ).toHaveLength(12);
+    expect(reportingAssertions.match(/'2026-07-17'/g) ?? []).toHaveLength(2);
+    expect(canonical).toContain(
+      "order_id, order_number_snapshot, order_date, order_origin_date,",
+    );
+    expect(canonical).toContain(recognitionDateExpression);
+    expect(canonical).toContain("current_order.order_date");
+    expect(canonical).toMatch(
+      /p_start_date date default null,\s+p_end_date date default null,\s+p_sales_channel text default null,\s+p_campaign_id uuid default null,\s+p_order_status text default null,\s+p_product_id uuid default null,\s+p_sku text default null,/i,
+    );
+    expect(
+      canonical.match(
+        /p_start_date is null or snapshot\.order_date >= p_start_date/g,
+      ) ?? [],
+    ).toHaveLength(2);
+    expect(
+      canonical.match(
+        /p_end_date is null or snapshot\.order_date <= p_end_date/g,
+      ) ?? [],
+    ).toHaveLength(2);
+    expect(pgTap).toContain(
+      "set product_id = '82100000-0000-4000-8000-000000000002'",
+    );
+    expect(reportingAssertions).toContain(
+      "'82100000-0000-4000-8000-000000000001', null, 100, 0",
+    );
+    expect(reportingAssertions).toContain(
+      "uses immutable product scope and fails closed",
+    );
+  });
+
+  it("repairs only the immutable ambiguous-refund reporting scope", () => {
+    const originalRpc = stripSqlComments(
+      productReportingRpcDefinition(canonical),
+    );
+    const repairedRpc = stripSqlComments(
+      productReportingRpcDefinition(productReportingScopeMigration),
+    );
+    const originalGuardStart = originalRpc.indexOf("if exists (");
+    const repairedGuardStart = repairedRpc.indexOf("if exists (");
+    const originalQueryStart = originalRpc.indexOf("return query");
+    const repairedQueryStart = repairedRpc.indexOf("return query");
+
+    expect(originalRpc).not.toBe("");
+    expect(repairedRpc).not.toBe("");
+    expect(normalizeSqlWhitespace(originalRpc.slice(0, originalGuardStart))).toBe(
+      normalizeSqlWhitespace(repairedRpc.slice(0, repairedGuardStart)),
+    );
+    expect(normalizeSqlWhitespace(originalRpc.slice(originalQueryStart))).toBe(
+      normalizeSqlWhitespace(repairedRpc.slice(repairedQueryStart)),
+    );
+    expect(repairedRpc).toContain(
+      "from public.order_item_financial_allocations as scoped_allocation",
+    );
+    expect(repairedRpc).toContain(
+      "scoped_allocation.product_id_snapshot = p_product_id",
+    );
+    expect(repairedRpc).toContain(
+      "lower(scoped_allocation.sku_snapshot) = lower(p_sku)",
+    );
+    expect(repairedRpc).not.toContain("from public.order_items as item");
+    expect(productReportingScopeMigration).toMatch(
+      /\bbegin;[\s\S]*create or replace function public\.get_dashboard_product_financials\([\s\S]*\bcommit;\s*$/i,
+    );
+    expect(stripSqlComments(productReportingScopeMigration)).not.toMatch(
+      /\b(insert into|update public\.|delete from|truncate|alter table|create table|drop table|grant|revoke)\b/i,
+    );
+    expect(productReportingScopeMigration).not.toContain(
+      "decrement_product_stock(",
+    );
+
+    for (const sql of [
+      productReportingScopePreflight,
+      productReportingScopeVerifier,
+    ]) {
+      expect(sql).toContain("__CONFIRM_VISIBLE_DEVELOPMENT_BREADCRUMB__");
+      expect(stripSqlComments(sql)).not.toMatch(
+        /\b(insert|update|delete|truncate|alter|create|drop|grant|revoke)\b/i,
+      );
+    }
+    expect(productReportingScopePreflight).toContain(
+      "followup_application_allowed",
+    );
+    expect(productReportingScopeVerifier).toContain("all_checks_passed");
+    expect(productReportingScopeVerifier).toContain(
+      "immutable_allocation_fail_closed_scope_installed",
+    );
+  });
+
+  it("exports every TAP assertion, diagnostic, and finish row in one grid", () => {
+    const assertionCaptureCount = (
+      pgTapWrapper.match(pgTapCapturePrefixPattern) ?? []
+    ).length;
+    const allBufferWrites =
+      pgTapWrapper.match(
+        /^insert into pg_temp\.pgtap_004_result_buffer \(tap_result\)$/gim,
+      ) ?? [];
+
+    expect(assertionCaptureCount).toBe(90);
+    expect(allBufferWrites).toHaveLength(91);
+    expect(pgTapWrapper).toContain(
+      "create temporary table pgtap_004_result_buffer",
+    );
+    expect(pgTapWrapper).toContain(
+      ") on commit drop;",
+    );
+    expect(pgTapWrapper).toMatch(
+      /select finish_output\.tap_output\s+from finish\(\) with ordinality/i,
+    );
+    expect(pgTapWrapper).toContain(
+      "pg_catalog.regexp_split_to_table(\n    buffered_output.tap_result,",
+    );
+    expect(pgTapWrapper).toMatch(
+      /select\s+row_number\(\) over \([\s\S]*?::bigint as result_order,\s+tap_result\s+from expanded_tap_output\s+order by buffered_result_order, line_order;/i,
+    );
+    expect(
+      pgTapWrapper.match(/^with expanded_tap_output as \($/gim) ?? [],
+    ).toHaveLength(1);
+    expect(pgTapWrapper.trimEnd()).toMatch(
+      /from expanded_tap_output\s+order by buffered_result_order, line_order;\s+rollback;$/i,
+    );
+    expect(pgTapWrapper).not.toMatch(/\bcommit\s*;/i);
+    expect(rehearsalChecklist).toContain(
+      "SQL Editor result limit to at least **1,000**",
+    );
+    expect(rehearsalChecklist).toContain(
+      "export the complete result grid and stop",
+    );
+  });
+
+  it("grants only the temporary buffer privileges required by simulated roles", () => {
+    const bufferInsertRoles = new Set<string>();
+    let activeRole = "test_operator";
+
+    for (const line of pgTapWrapper.split(/\r?\n/)) {
+      const setRole = line.match(/^set(?: local)? role ([a-z_][a-z0-9_]*);$/i);
+      if (setRole) {
+        activeRole = setRole[1].toLowerCase();
+      } else if (/^reset role;$/i.test(line)) {
+        activeRole = "test_operator";
+      } else if (
+        /^insert into pg_temp\.pgtap_004_result_buffer \(tap_result\)$/i.test(
+          line,
+        )
+      ) {
+        bufferInsertRoles.add(activeRole);
+      }
+    }
+
+    expect([...bufferInsertRoles].sort()).toEqual([
+      "authenticated",
+      "test_operator",
+    ]);
+
+    const executableWrapper = stripSqlComments(pgTapWrapper);
+    const temporaryGrants =
+      executableWrapper.match(/\bgrant\b[\s\S]*?;/gi) ?? [];
+    expect(temporaryGrants).toHaveLength(2);
+    expect(temporaryGrants[0]).toMatch(
+      /^grant insert \(tap_result\)\s+on table pg_temp\.pgtap_004_result_buffer\s+to authenticated;$/i,
+    );
+    expect(temporaryGrants[1]).toMatch(
+      /^grant usage\s+on sequence pg_temp\.pgtap_004_result_buffer_result_order_seq\s+to authenticated;$/i,
+    );
+    expect(temporaryGrants.join("\n")).not.toMatch(/\bpublic\b/i);
+    expect(temporaryGrants.join("\n")).not.toMatch(
+      /\b(?:anon|service_role)\b/i,
+    );
+
+    const finalReset = pgTapWrapper.lastIndexOf("reset role;");
+    const finishCapture = pgTapWrapper.lastIndexOf(
+      "select finish_output.tap_output",
+    );
+    const finalGrid = pgTapWrapper.lastIndexOf("with expanded_tap_output as (");
+    expect(finalReset).toBeGreaterThan(-1);
+    expect(finalReset).toBeLessThan(finishCapture);
+    expect(finishCapture).toBeLessThan(finalGrid);
+    expect(pgTapWrapper.slice(finalReset, finalGrid)).not.toMatch(
+      /set(?: local)? role /i,
+    );
   });
 
   it("keeps rehearsal gates metadata-only and verifies cleanup independently", () => {
@@ -437,6 +673,8 @@ describe("review-only product financial recognition contract", () => {
       "supabase db push --linked",
       "supabase db push --dry-run --linked",
       "supabase db push --linked",
+      "supabase db push --dry-run --linked",
+      "supabase db push --linked",
     ]);
     expect(powershellCommands).toContain("supabase migration list --linked");
     expect(powershellCommands).toContain("supabase --version");
@@ -454,6 +692,9 @@ describe("review-only product financial recognition contract", () => {
     );
     expect(rehearsalChecklist).toContain(
       "202607180000_authenticated_reporting_helper_execute.sql",
+    );
+    expect(rehearsalChecklist).toContain(
+      "202607190000_product_reporting_ambiguous_refund_scope.sql",
     );
     expect(rehearsalChecklist).toContain(
       "Stop after the dry run and return sanitized",
