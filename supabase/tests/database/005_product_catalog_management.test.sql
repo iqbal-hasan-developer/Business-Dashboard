@@ -29,21 +29,53 @@ select has_function('public', 'update_dashboard_product',
   array['uuid','text','text','text','numeric','boolean','uuid','numeric','integer','text','text','text'],
   'product update RPC has the reviewed signature');
 insert into pg_temp.pgtap_005_result_buffer (tap_result)
-select ok((select prosecdef from pg_proc where oid =
-  'public.create_dashboard_product(text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure),
-  'create is security definer');
+select ok((
+  select procedure.prosecdef and language.lanname = 'plpgsql'
+  from pg_proc as procedure
+  join pg_language as language on language.oid = procedure.prolang
+  where procedure.oid =
+    'public.create_dashboard_product(text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure
+), 'create is a PL/pgSQL security definer');
 insert into pg_temp.pgtap_005_result_buffer (tap_result)
-select ok((select prosecdef from pg_proc where oid =
-  'public.update_dashboard_product(uuid,text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure),
-  'update is security definer');
+select ok((
+  select procedure.prosecdef and language.lanname = 'plpgsql'
+  from pg_proc as procedure
+  join pg_language as language on language.oid = procedure.prolang
+  where procedure.oid =
+    'public.update_dashboard_product(uuid,text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure
+), 'update is a PL/pgSQL security definer');
 insert into pg_temp.pgtap_005_result_buffer (tap_result)
-select is((select proconfig from pg_proc where oid =
-  'public.create_dashboard_product(text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure),
-  array['search_path=']::text[], 'create has an empty search path');
+select ok((
+  select count(*) = 1
+    and bool_and(
+      btrim(
+        substring(configuration from length('search_path=') + 1),
+        '"'
+      ) = ''
+    )
+  from pg_proc as procedure
+  cross join lateral unnest(coalesce(procedure.proconfig, array[]::text[]))
+    as configuration
+  where procedure.oid =
+      'public.create_dashboard_product(text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure
+    and split_part(configuration, '=', 1) = 'search_path'
+), 'create has a fixed empty search path');
 insert into pg_temp.pgtap_005_result_buffer (tap_result)
-select is((select proconfig from pg_proc where oid =
-  'public.update_dashboard_product(uuid,text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure),
-  array['search_path=']::text[], 'update has an empty search path');
+select ok((
+  select count(*) = 1
+    and bool_and(
+      btrim(
+        substring(configuration from length('search_path=') + 1),
+        '"'
+      ) = ''
+    )
+  from pg_proc as procedure
+  cross join lateral unnest(coalesce(procedure.proconfig, array[]::text[]))
+    as configuration
+  where procedure.oid =
+      'public.update_dashboard_product(uuid,text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'::regprocedure
+    and split_part(configuration, '=', 1) = 'search_path'
+), 'update has a fixed empty search path');
 insert into pg_temp.pgtap_005_result_buffer (tap_result)
 select function_privs_are('public', 'create_dashboard_product',
   array['text','text','text','numeric','boolean','uuid','numeric','integer','text','text','text'],

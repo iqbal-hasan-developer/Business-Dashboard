@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync("supabase/migrations/202607200000_product_catalog_management_rpc.sql", "utf8");
+const verifier = readFileSync("supabase/development-rehearsal/202607200002_verify_product_catalog_rpc.sql", "utf8");
 const test = readFileSync("supabase/tests/database/005_product_catalog_management.test.sql", "utf8");
 
 describe("product catalog management SQL contracts", () => {
@@ -12,6 +13,26 @@ describe("product catalog management SQL contracts", () => {
     expect(migration.match(/using errcode = '42501'/g)).toHaveLength(2);
     expect(migration.match(/to authenticated;/g)).toHaveLength(2);
     expect(migration.match(/from public, anon, service_role;/g)).toHaveLength(2);
+  });
+
+  it("parses catalog metadata without depending on empty-value serialization", () => {
+    for (const sql of [verifier, test]) {
+      expect(sql).toContain("split_part(configuration, '=', 1) = 'search_path'");
+      expect(sql).toContain("substring(configuration from length('search_path=') + 1)");
+      expect(sql).toMatch(/btrim\([\s\S]*?['\"]\s*\)\s*=\s*''/);
+      expect(sql).not.toContain("array['search_path=']::text[]");
+      expect(sql).not.toContain("@> array['search_path=']");
+    }
+    expect(verifier).toContain("join pg_catalog.pg_language l on l.oid = p.prolang");
+    expect(verifier).toContain("lanname = 'plpgsql'");
+    expect(verifier).toContain("select count(*) = 1");
+    expect(test.match(/language\.lanname = 'plpgsql'/g)).toHaveLength(2);
+    expect(test.match(/count\(\*\) = 1/g)).toHaveLength(2);
+
+    const normalizedSearchPath = (configuration: string) =>
+      configuration.slice("search_path=".length).replace(/^"+|"+$/g, "");
+    expect(normalizedSearchPath("search_path=")).toBe("");
+    expect(normalizedSearchPath('search_path=""')).toBe("");
   });
 
   it("creates stock at zero and never updates or invokes inventory", () => {

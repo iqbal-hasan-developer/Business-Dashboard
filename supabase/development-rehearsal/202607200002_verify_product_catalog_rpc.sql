@@ -1,8 +1,10 @@
 with rpc as (
   select p.oid, p.proname, p.prosecdef, p.proconfig, p.proacl,
+    l.lanname,
     pg_catalog.pg_get_functiondef(p.oid) as definition
   from pg_catalog.pg_proc p
   join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  join pg_catalog.pg_language l on l.oid = p.prolang
   where n.nspname = 'public'
     and p.oid in (
       to_regprocedure('public.create_dashboard_product(text,text,text,numeric,boolean,uuid,numeric,integer,text,text,text)'),
@@ -11,7 +13,21 @@ with rpc as (
 ), detail as (
   select
     count(*) = 2 as two_product_management_rpcs_exist,
-    bool_and(prosecdef and coalesce(proconfig, '{}'::text[]) @> array['search_path='])
+    bool_and(
+      lanname = 'plpgsql'
+      and prosecdef
+      and (
+        select count(*) = 1
+          and bool_and(
+            btrim(
+              substring(configuration from length('search_path=') + 1),
+              '"'
+            ) = ''
+          )
+        from unnest(coalesce(proconfig, array[]::text[])) as configuration
+        where split_part(configuration, '=', 1) = 'search_path'
+      )
+    )
       as product_rpcs_are_fixed_path_definers,
     bool_and(definition like '%dashboard_has_any_role(%'
       and definition like '%owner%admin%'
