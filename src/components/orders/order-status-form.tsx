@@ -15,7 +15,6 @@ import {
   createSubmissionGuard,
   MANUAL_ORDER_STATUSES,
   MANUAL_PAYMENT_STATUSES,
-  MANUAL_SETTLEMENT_STATUSES,
   orderTransitionSchema,
   type OrderTransitionValues,
 } from "@/domain/manual-entry";
@@ -31,15 +30,13 @@ export function OrderStatusForm({ order, enabled }: { order: Order; enabled: boo
   const [saveError, setSaveError] = useState<string | null>(null);
   const [submissionGuard] = useState(createSubmissionGuard);
   const supported = MANUAL_ORDER_STATUSES.includes(order.status as (typeof MANUAL_ORDER_STATUSES)[number])
-    && MANUAL_PAYMENT_STATUSES.includes(order.paymentStatus as (typeof MANUAL_PAYMENT_STATUSES)[number])
-    && MANUAL_SETTLEMENT_STATUSES.includes(order.settlementStatus as (typeof MANUAL_SETTLEMENT_STATUSES)[number]);
+    && MANUAL_PAYMENT_STATUSES.includes(order.paymentStatus as (typeof MANUAL_PAYMENT_STATUSES)[number]);
   const form = useForm<OrderTransitionValues>({
     resolver: zodResolver(orderTransitionSchema),
     defaultValues: {
       orderId: order.id,
       orderStatus: supported ? order.status as OrderTransitionValues["orderStatus"] : "Pending",
       paymentStatus: supported ? order.paymentStatus as OrderTransitionValues["paymentStatus"] : "Unpaid",
-      settlementStatus: supported ? order.settlementStatus as OrderTransitionValues["settlementStatus"] : "Not Applicable",
     },
   });
 
@@ -54,7 +51,7 @@ export function OrderStatusForm({ order, enabled }: { order: Order; enabled: boo
           toast.error("Statuses were not updated", { description: result.message });
           return;
         }
-        toast.success("Statuses updated", { description: "Order, payment, and settlement state remain independent." });
+        toast.success("Statuses updated", { description: "Settlement status remains controlled by confirmed allocation evidence." });
         router.refresh();
       } finally {
         submissionGuard.release();
@@ -70,7 +67,7 @@ export function OrderStatusForm({ order, enabled }: { order: Order; enabled: boo
       <FieldGroup className="grid gap-4 sm:grid-cols-3">
         <Field><FieldLabel>Order status</FieldLabel><Controller control={form.control} name="orderStatus" render={({ field }) => <StatusSelect value={field.value} onValueChange={field.onChange} options={MANUAL_ORDER_STATUSES} />} /></Field>
         <Field><FieldLabel>Payment status</FieldLabel><Controller control={form.control} name="paymentStatus" render={({ field }) => <StatusSelect value={field.value} onValueChange={field.onChange} options={MANUAL_PAYMENT_STATUSES} />} /></Field>
-        <Field><FieldLabel>Settlement status</FieldLabel><Controller control={form.control} name="settlementStatus" render={({ field }) => <StatusSelect value={field.value} onValueChange={field.onChange} options={MANUAL_SETTLEMENT_STATUSES} />} /></Field>
+        <Field><FieldLabel>Settlement status</FieldLabel><div className="flex h-8 items-center rounded-lg border bg-muted/40 px-3 text-sm">{order.settlementStatus}</div><p className="text-xs text-muted-foreground">Updated only by confirmed settlement evidence.</p></Field>
       </FieldGroup>
       {saveError && <Alert variant="destructive" className="mt-4"><AlertTriangle /><AlertTitle>Statuses were not updated</AlertTitle><AlertDescription>{saveError}</AlertDescription></Alert>}
       <div className="mt-4 flex justify-end"><Button type="submit" disabled={!enabled || !supported || isPending}><Save /> {isPending ? "Saving…" : "Save statuses"}</Button></div>

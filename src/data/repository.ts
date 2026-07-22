@@ -1,5 +1,6 @@
-import type { Campaign, DashboardData, DashboardFilters, Expense, Order, Product, ProductCategory } from "@/domain/types";
+import type { Campaign, CourierSettlementData, DashboardData, DashboardFilters, Expense, Order, Product, ProductCategory } from "@/domain/types";
 import { buildDashboardData, mockExpenses, mockOrders, mockProducts } from "@/data/mock-data";
+import { calculateOrderFinancials } from "@/domain/calculations";
 
 export interface BusinessRepository {
   getDashboard(filters?: DashboardFilters): Promise<DashboardData>;
@@ -9,6 +10,7 @@ export interface BusinessRepository {
   getProductCategories(): Promise<ProductCategory[]>;
   getExpenses(): Promise<Expense[]>;
   getCampaigns(): Promise<Campaign[]>;
+  getCourierSettlementData(): Promise<CourierSettlementData>;
 }
 
 export const mockRepository: BusinessRepository = {
@@ -21,4 +23,11 @@ export const mockRepository: BusinessRepository = {
   },
   async getExpenses() { return mockExpenses; },
   async getCampaigns() { return [{ id: "00000000-0000-4000-8000-000000000001", name: "Always-on", channel: "Facebook Page", startsOn: "2026-07-01", endsOn: "", budget: 0, isActive: true }]; },
+  async getCourierSettlementData() {
+    return {
+      eligibleOrders: mockOrders.filter((order) => order.paymentMethod === "COD" && order.status === "Delivered" && order.settlementStatus !== "Settled")
+        .map((order) => ({ orderId: order.id, orderNumber: order.orderNumber, orderDate: order.orderDate, customerName: order.customerName, expectedUpdatedAt: order.updatedAt ?? new Date(`${order.orderDate}T00:00:00Z`).toISOString(), grossCodReceivable: calculateOrderFinancials(order).netRevenue })),
+      batches: [],
+    };
+  },
 };

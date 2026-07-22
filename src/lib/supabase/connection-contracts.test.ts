@@ -31,6 +31,7 @@ describe("development Supabase connection contracts", () => {
       "get_dashboard_financial_summary",
       "record_daily_ad_spend",
       "record_expense",
+      "record_steadfast_cod_settlement",
       "set_product_buying_cost",
       "transition_dashboard_order",
       "update_dashboard_order",

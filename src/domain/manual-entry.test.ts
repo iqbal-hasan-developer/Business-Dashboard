@@ -67,6 +67,11 @@ describe("manual-entry validation and RPC mapping", () => {
     expect(orderTransitionSchema.safeParse({ orderId: validOrder.items[0].productId, orderStatus: "Refunded", paymentStatus: "Paid", settlementStatus: "Settled" }).success).toBe(false);
   });
 
+  it("rejects manually creating a settled order without allocation evidence", () => {
+    expect(manualOrderSchema.safeParse({ ...validOrder, settlementStatus: "Settled" }).success).toBe(false);
+    expect(manualOrderSchema.safeParse({ ...validOrder, settlementStatus: "Partially Settled" }).success).toBe(false);
+  });
+
   it("validates required delivery fields and non-negative exact money", () => {
     expect(manualOrderSchema.safeParse({ ...validOrder, customerPhone: "", discount: "-1" }).success).toBe(false);
     expect(productBusinessSchema.safeParse({ productId: validOrder.items[0].productId, buyingPrice: "12.345", reorderLevel: -1, skuOverride: "SKU", variation: "V", internalNotes: "" }).success).toBe(false);

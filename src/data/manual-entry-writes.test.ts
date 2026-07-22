@@ -26,15 +26,15 @@ describe("manual-entry RPC repository", () => {
     expect(rpc).toHaveBeenCalledWith("create_dashboard_order", expect.objectContaining({ p_items: [expect.objectContaining({ quantity: 1 })] }));
   });
 
-  it("keeps order, payment, and settlement status separate and never sends a refund", async () => {
+  it("updates order and payment while leaving settlement evidence-controlled", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
-    const values: OrderTransitionValues = { orderId: "82400000-0000-4000-8000-000000000001", orderStatus: "Delivered", paymentStatus: "Unpaid", settlementStatus: "Awaiting" };
+    const values: OrderTransitionValues = { orderId: "82400000-0000-4000-8000-000000000001", orderStatus: "Delivered", paymentStatus: "Unpaid" };
     await updateManualOrderStatuses(clientWith(rpc), values);
     expect(rpc).toHaveBeenCalledWith("transition_dashboard_order", {
       p_order_id: values.orderId,
       p_order_status: "Delivered",
       p_payment_status: "Unpaid",
-      p_settlement_status: "Awaiting",
+      p_settlement_status: null,
       p_refund_amount: null,
     });
   });

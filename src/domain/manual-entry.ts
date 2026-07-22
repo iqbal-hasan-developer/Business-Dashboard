@@ -29,6 +29,8 @@ export const MANUAL_SETTLEMENT_STATUSES = [
   "Settled",
 ] as const;
 
+export const MANUAL_SETTLEMENT_ENTRY_STATUSES = ["Not Applicable", "Awaiting"] as const;
+
 const moneyInput = z
   .string()
   .trim()
@@ -120,7 +122,7 @@ const manualOrderFields = {
 };
 
 export const manualOrderFormSchema = z.object(manualOrderFields);
-export const manualOrderSchema = manualOrderFormSchema.extend({
+const installedManualOrderSchema = manualOrderFormSchema.extend({
   items: z.array(z.object({
     productId: z.string().uuid("Choose an installed product"),
     quantity: z.number().int().min(1, "Minimum quantity is 1").max(10_000),
@@ -128,7 +130,12 @@ export const manualOrderSchema = manualOrderFormSchema.extend({
   })).min(1, "Add at least one item").max(100),
 });
 
-export const manualOrderEditSchema = manualOrderSchema.omit({
+export const manualOrderSchema = installedManualOrderSchema.refine((value) => MANUAL_SETTLEMENT_ENTRY_STATUSES.includes(value.settlementStatus as (typeof MANUAL_SETTLEMENT_ENTRY_STATUSES)[number]), {
+  path: ["settlementStatus"],
+  message: "Settled status requires confirmed allocation evidence",
+});
+
+export const manualOrderEditSchema = installedManualOrderSchema.omit({
   orderNumber: true,
   status: true,
   paymentStatus: true,
@@ -153,7 +160,6 @@ export const orderTransitionSchema = z.object({
   orderId: z.string().uuid(),
   orderStatus: z.enum(MANUAL_ORDER_STATUSES),
   paymentStatus: z.enum(MANUAL_PAYMENT_STATUSES),
-  settlementStatus: z.enum(MANUAL_SETTLEMENT_STATUSES),
 });
 
 export type ManualOrderValues = z.infer<typeof manualOrderSchema>;

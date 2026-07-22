@@ -147,6 +147,35 @@ export type Database = {
         created_by: string | null;
         created_at: string;
       }>;
+      settlement_records: Table<{
+        id: string;
+        courier: string;
+        settlement_reference: string | null;
+        settlement_date: string;
+        amount_received: number;
+        fees_withheld: number;
+        status: string;
+        notes: string | null;
+        created_by: string | null;
+        updated_by: string | null;
+        created_at: string;
+        updated_at: string;
+        receiving_method: "bkash" | "bank_transfer" | null;
+        receiving_account_label: string | null;
+        receiving_account_last4: string | null;
+        receiving_transaction_reference: string | null;
+        gross_cod_amount: number | null;
+        idempotency_key: string | null;
+        request_fingerprint: string | null;
+        confirmed_at: string | null;
+      }>;
+      settlement_order_allocations: Table<{
+        settlement_id: string;
+        order_id: string;
+        allocated_amount: number;
+        created_by: string | null;
+        created_at: string;
+      }>;
       dashboard_user_profiles: Table<{
         user_id: string;
         email: string | null;
@@ -194,6 +223,46 @@ export type Database = {
       }>;
     };
     Views: {
+      dashboard_steadfast_settlement_eligible_orders: {
+        Row: {
+          order_id: string;
+          order_number: string;
+          order_date: string;
+          customer_name: string;
+          updated_at: string;
+          gross_cod_receivable: number;
+        };
+        Relationships: [];
+      };
+      dashboard_steadfast_settlement_batches: {
+        Row: {
+          id: string;
+          settlement_date: string;
+          courier: string;
+          receiving_method: "bkash" | "bank_transfer";
+          receiving_account_label: string | null;
+          receiving_account_last4: string | null;
+          receiving_transaction_reference: string | null;
+          settlement_reference: string | null;
+          gross_cod_amount: number;
+          deductions: number;
+          net_received: number;
+          notes: string | null;
+          confirmed_at: string;
+          order_count: number;
+        };
+        Relationships: [];
+      };
+      dashboard_steadfast_settlement_batch_orders: {
+        Row: {
+          settlement_id: string;
+          order_id: string;
+          order_number: string;
+          customer_name: string;
+          allocated_amount: number;
+        };
+        Relationships: [];
+      };
       dashboard_order_financials: {
         Row: {
           order_id: string;
@@ -355,6 +424,23 @@ export type Database = {
           net_profit: number | null;
           profit_margin: number | null;
         }>;
+      };
+      record_steadfast_cod_settlement: {
+        Args: {
+          p_settlement_date: string;
+          p_receiving_method: "bkash" | "bank_transfer";
+          p_gross_cod_amount: number;
+          p_deductions: number;
+          p_net_received: number;
+          p_orders: Json;
+          p_idempotency_key: string;
+          p_courier_reference?: string | null;
+          p_receiving_account_label?: string | null;
+          p_receiving_account_last4?: string | null;
+          p_receiving_transaction_reference?: string | null;
+          p_note?: string | null;
+        };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;

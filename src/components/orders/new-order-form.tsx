@@ -19,7 +19,7 @@ import {
   createSubmissionGuard,
   MANUAL_ORDER_STATUSES,
   MANUAL_PAYMENT_STATUSES,
-  MANUAL_SETTLEMENT_STATUSES,
+  MANUAL_SETTLEMENT_ENTRY_STATUSES,
   manualOrderFormSchema,
   orderToManualOrderValues,
   toManualOrderEditValues,
@@ -252,7 +252,7 @@ function OrderForm({ products, existingOrderNumbers, persistenceEnabled, mode, i
           <Field><FieldLabel htmlFor="status">Order status</FieldLabel><Controller control={form.control} name="status" render={({ field }) => <FormSelect id="status" value={field.value} onValueChange={field.onChange} options={MANUAL_ORDER_STATUSES} placeholder="Order status" />} /></Field>
           <Field><FieldLabel htmlFor="paymentMethod">Payment method</FieldLabel><Controller control={form.control} name="paymentMethod" render={({ field }) => <FormSelect id="paymentMethod" value={field.value} onValueChange={field.onChange} options={PAYMENT_METHODS} placeholder="Method" />} /></Field>
           <Field><FieldLabel htmlFor="paymentStatus">Payment status</FieldLabel><Controller control={form.control} name="paymentStatus" render={({ field }) => <FormSelect id="paymentStatus" value={field.value} onValueChange={field.onChange} options={MANUAL_PAYMENT_STATUSES} placeholder="Payment status" />} /></Field>
-          <Field><FieldLabel htmlFor="settlementStatus">Settlement status</FieldLabel><Controller control={form.control} name="settlementStatus" render={({ field }) => <FormSelect id="settlementStatus" value={field.value} onValueChange={field.onChange} options={MANUAL_SETTLEMENT_STATUSES} placeholder="Settlement status" />} /></Field>
+          <Field><FieldLabel htmlFor="settlementStatus">Settlement status</FieldLabel><Controller control={form.control} name="settlementStatus" render={({ field }) => <FormSelect id="settlementStatus" value={field.value} onValueChange={field.onChange} options={MANUAL_SETTLEMENT_ENTRY_STATUSES} placeholder="Settlement status" />} /></Field>
         </FieldGroup>
       </Section>}
       <Section number={mode === "create" ? 4 : 3} title="Product items" description="The RPC snapshots the selected product and verified private buying cost without changing stock.">

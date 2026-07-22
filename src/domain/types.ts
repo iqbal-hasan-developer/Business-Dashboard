@@ -113,6 +113,46 @@ export interface Expense {
   amount: Money;
 }
 
+export type SettlementReceivingMethod = "bkash" | "bank_transfer";
+
+export interface SettlementEligibleOrder {
+  orderId: string;
+  orderNumber: string;
+  orderDate: string;
+  customerName: string;
+  expectedUpdatedAt: string;
+  grossCodReceivable: Money;
+}
+
+export interface SettlementBatchOrder {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  allocatedAmount: Money;
+}
+
+export interface SettlementBatch {
+  id: string;
+  settlementDate: string;
+  courier: "Steadfast";
+  receivingMethod: SettlementReceivingMethod;
+  receivingAccountLabel: string;
+  receivingAccountLast4: string;
+  transactionReference: string;
+  courierReference: string;
+  grossCodAmount: Money;
+  deductions: Money;
+  netReceived: Money;
+  note: string;
+  confirmedAt: string;
+  orders: SettlementBatchOrder[];
+}
+
+export interface CourierSettlementData {
+  eligibleOrders: SettlementEligibleOrder[];
+  batches: SettlementBatch[];
+}
+
 export interface OrderFinancials {
   /** Transactional item subtotal, whether or not the order is Delivered. */
   productSubtotal: Money;

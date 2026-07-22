@@ -27,7 +27,7 @@ import {
   type ReportingPeriod,
 } from "@/domain/reporting-period";
 import type {
-  Campaign, DashboardData, DashboardFilters, Expense, Money, Order, OrderStatus, PaymentMethod,
+  Campaign, CourierSettlementData, DashboardData, DashboardFilters, Expense, Money, Order, OrderStatus, PaymentMethod,
   PaymentStatus, Product, ProductCategory, SalesChannel, SettlementStatus,
 } from "@/domain/types";
 import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES, SALES_CHANNELS, SETTLEMENT_STATUSES } from "@/domain/types";
@@ -445,6 +445,44 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       id: row.id, name: row.name, channel: row.channel ?? "", startsOn: row.starts_on ?? "",
       endsOn: row.ends_on ?? "", budget: toMoney(row.budget), isActive: row.is_active,
     }));
+  }
+
+  async getCourierSettlementData(): Promise<CourierSettlementData> {
+    const [eligibleResult, batchesResult, ordersResult] = await Promise.all([
+      this.supabase.from("dashboard_steadfast_settlement_eligible_orders")
+        .select("order_id,order_number,order_date,customer_name,updated_at,gross_cod_receivable", { count: "exact" })
+        .order("order_date", { ascending: true }).limit(MAX_LIST_ROWS),
+      this.supabase.from("dashboard_steadfast_settlement_batches")
+        .select("id,settlement_date,courier,receiving_method,receiving_account_label,receiving_account_last4,receiving_transaction_reference,settlement_reference,gross_cod_amount,deductions,net_received,notes,confirmed_at,order_count", { count: "exact" })
+        .order("settlement_date", { ascending: false }).limit(MAX_LIST_ROWS),
+      this.supabase.from("dashboard_steadfast_settlement_batch_orders")
+        .select("settlement_id,order_id,order_number,customer_name,allocated_amount", { count: "exact" })
+        .limit(MAX_LIST_ROWS),
+    ]);
+    if (eligibleResult.error || batchesResult.error || ordersResult.error || !eligibleResult.data || !batchesResult.data || !ordersResult.data) {
+      throw new Error("Unable to load courier settlement records.");
+    }
+    assertCompleteResult(eligibleResult.count, eligibleResult.data.length, MAX_LIST_ROWS, "Eligible settlement orders");
+    assertCompleteResult(batchesResult.count, batchesResult.data.length, MAX_LIST_ROWS, "Settlement history");
+    assertCompleteResult(ordersResult.count, ordersResult.data.length, MAX_LIST_ROWS, "Settlement allocations");
+    const ordersByBatch = new Map<string, typeof ordersResult.data>();
+    ordersResult.data.forEach((row) => ordersByBatch.set(row.settlement_id, [...(ordersByBatch.get(row.settlement_id) ?? []), row]));
+    return {
+      eligibleOrders: eligibleResult.data.map((row) => ({
+        orderId: row.order_id, orderNumber: row.order_number, orderDate: row.order_date,
+        customerName: row.customer_name, expectedUpdatedAt: row.updated_at,
+        grossCodReceivable: databaseNumericToMoney(row.gross_cod_receivable),
+      })),
+      batches: batchesResult.data.map((row) => ({
+        id: row.id, settlementDate: row.settlement_date, courier: "Steadfast",
+        receivingMethod: row.receiving_method, receivingAccountLabel: row.receiving_account_label ?? "",
+        receivingAccountLast4: row.receiving_account_last4 ?? "", transactionReference: row.receiving_transaction_reference ?? "",
+        courierReference: row.settlement_reference ?? "", grossCodAmount: databaseNumericToMoney(row.gross_cod_amount),
+        deductions: databaseNumericToMoney(row.deductions), netReceived: databaseNumericToMoney(row.net_received),
+        note: row.notes ?? "", confirmedAt: row.confirmed_at,
+        orders: (ordersByBatch.get(row.id) ?? []).map((order) => ({ orderId: order.order_id, orderNumber: order.order_number, customerName: order.customer_name, allocatedAmount: databaseNumericToMoney(order.allocated_amount) })),
+      })),
+    };
   }
 
   private async getOperationalRows(period: ReportingPeriod, filters: DashboardFilters, campaignId: string | null) {

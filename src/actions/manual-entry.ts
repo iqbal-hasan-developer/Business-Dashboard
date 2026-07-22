@@ -150,7 +150,7 @@ export async function updateOrderStatusesAction(input: unknown): Promise<ManualE
     for (const path of ["/orders", `/orders/${parsed.data.orderId}`, "/dashboard", "/cash-settlements", "/reports", "/data-checks"]) {
       revalidatePath(path);
     }
-    return { ok: true, message: "Order, payment, and settlement statuses updated." };
+    return { ok: true, message: "Order and payment statuses updated. Settlement status remains evidence-controlled." };
   } catch (error) {
     return safeWriteError(error);
   }

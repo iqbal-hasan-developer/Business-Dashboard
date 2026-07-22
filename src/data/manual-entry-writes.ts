@@ -52,7 +52,7 @@ export async function updateManualOrderStatuses(client: SupabaseClient, values: 
     p_order_id: values.orderId,
     p_order_status: values.orderStatus,
     p_payment_status: values.paymentStatus,
-    p_settlement_status: values.settlementStatus,
+    p_settlement_status: null,
     p_refund_amount: null,
   });
   if (error) throw error;
