@@ -3,10 +3,12 @@ import "server-only";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   buildManualOrderRpcArgs,
+  buildManualOrderEditRpcArgs,
   type AdSpendEntryValues,
   type CampaignEntryValues,
   type ExpenseEntryValues,
   type ManualOrderValues,
+  type ManualOrderEditValues,
   type OrderTransitionValues,
   type ProductCatalogValues,
   type ProductBusinessValues,
@@ -36,6 +38,12 @@ function catalogArgs(values: ProductCatalogValues) {
 export async function createManualOrder(client: SupabaseClient, values: ManualOrderValues) {
   const { data, error } = await client.rpc("create_dashboard_order", buildManualOrderRpcArgs(values));
   if (error || !data) throw error ?? new Error("Order creation returned no identifier.");
+  return data;
+}
+
+export async function updateManualOrder(client: SupabaseClient, values: ManualOrderEditValues) {
+  const { data, error } = await client.rpc("update_dashboard_order", buildManualOrderEditRpcArgs(values));
+  if (error || !data) throw error ?? new Error("Order update returned no identifier.");
   return data;
 }
 

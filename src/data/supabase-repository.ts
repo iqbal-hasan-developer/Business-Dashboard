@@ -135,10 +135,12 @@ function orderStatus(row: Pick<OrderRow, "dashboard_order_status" | "order_statu
     : legacyOrderStatus(row.order_status);
 }
 
-export function mapOrder(row: OrderRow, itemRows: OrderItemRow[]): Order {
+export function mapOrder(row: OrderRow, itemRows: OrderItemRow[], hasImmutableFinancialSnapshot = false): Order {
   const status = orderStatus(row);
   return {
     id: row.id,
+    updatedAt: row.updated_at ?? undefined,
+    hasImmutableFinancialSnapshot,
     orderNumber: row.order_number,
     externalReference: row.external_reference ?? undefined,
     orderDate: row.order_date ?? row.created_at?.slice(0, 10) ?? dhakaBusinessDate(),
@@ -161,6 +163,8 @@ export function mapOrder(row: OrderRow, itemRows: OrderItemRow[]): Order {
     refundAmount: toMoney(row.refund_amount),
     courierCostSnapshot: toMoney(row.courier_cost_snapshot),
     packagingCostSnapshot: toMoney(row.packaging_cost_snapshot),
+    courierCostSnapshotKnown: row.courier_cost_snapshot !== null,
+    packagingCostSnapshotKnown: row.packaging_cost_snapshot !== null,
     items: itemRows.map((item) => ({
       id: item.id,
       productId: item.product_id ?? "unknown",
@@ -573,9 +577,13 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     const { data: order, error } = await this.supabase.from("orders").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error("Unable to load the order.");
     if (!order) return null;
-    const { data: items, error: itemsError } = await this.supabase.from("order_items").select("*").eq("order_id", id);
-    if (itemsError || !items) throw new Error("Unable to load order items.");
-    return mapOrder(order, items);
+    const [itemsResult, snapshotResult] = await Promise.all([
+      this.supabase.from("order_items").select("*").eq("order_id", id),
+      this.supabase.from("order_financial_snapshots").select("order_id").eq("order_id", id).maybeSingle(),
+    ]);
+    if (itemsResult.error || !itemsResult.data) throw new Error("Unable to load order items.");
+    if (snapshotResult.error) throw new Error("Unable to verify the order edit lock.");
+    return mapOrder(order, itemsResult.data, snapshotResult.data !== null);
   }
 
   async getExpenses(): Promise<Expense[]> {

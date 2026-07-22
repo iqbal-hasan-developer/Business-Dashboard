@@ -22,6 +22,6 @@ describe("Supabase repository mapping", () => {
       quantity: 1, line_total: 580, sku_snapshot: "NN-001", list_price_snapshot: 580, buying_cost_snapshot: 280,
       actual_unit_selling_price: 580, created_at: null,
     } satisfies OrderItemRow;
-    expect(mapOrder(order, [item])).toMatchObject({ status: "Delivered", paymentMethod: "COD", paymentStatus: "Paid", items: [{ buyingCostSnapshot: 28000 }] });
+    expect(mapOrder(order, [item], true)).toMatchObject({ status: "Delivered", paymentMethod: "COD", paymentStatus: "Paid", updatedAt: undefined, hasImmutableFinancialSnapshot: true, courierCostSnapshotKnown: true, packagingCostSnapshotKnown: true, items: [{ buyingCostSnapshot: 28000 }] });
   });
 });

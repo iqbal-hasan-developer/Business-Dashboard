@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildManualOrderRpcArgs,
+  buildManualOrderEditRpcArgs,
   createSubmissionGuard,
   manualOrderSchema,
+  manualOrderEditSchema,
+  isOrderOrdinarilyEditable,
+  orderToManualOrderValues,
+  toManualOrderEditValues,
   orderTransitionSchema,
   productBusinessSchema,
   productCatalogSchema,
@@ -12,6 +17,9 @@ import {
   safeManualEntryError,
   type ManualOrderValues,
 } from "@/domain/manual-entry";
+import { calculateOrderFinancials } from "@/domain/calculations";
+import { parseMoney } from "@/domain/money";
+import type { Order } from "@/domain/types";
 
 const validOrder: ManualOrderValues = {
   orderNumber: "NNM-20260719-001",
@@ -84,5 +92,70 @@ describe("manual-entry validation and RPC mapping", () => {
     expect(safeManualEntryError({ code: "23505", message: "private detail" }, "Duplicate order.")).toBe("Duplicate order.");
     expect(safeManualEntryError({ code: "42501", message: "private detail" })).toMatch(/role/);
     expect(safeManualEntryError({ code: "XX000", message: "private detail" })).toBe("The record could not be saved. No changes were made.");
+  });
+
+  it("prefills editable values exactly and excludes identity and status fields from the update payload", () => {
+    const existing: Order = {
+      id: validOrder.items[0].productId,
+      updatedAt: "2026-07-22T10:00:00+00:00",
+      hasImmutableFinancialSnapshot: false,
+      orderNumber: validOrder.orderNumber,
+      externalReference: validOrder.externalReference,
+      orderDate: validOrder.orderDate,
+      customerName: validOrder.customerName,
+      customerPhone: validOrder.customerPhone,
+      customerAddress: validOrder.customerAddress,
+      customerNote: validOrder.customerNote,
+      customerLocation: validOrder.customerLocation,
+      courier: validOrder.courier,
+      channel: validOrder.channel,
+      campaign: validOrder.campaign,
+      status: "Confirmed",
+      paymentMethod: validOrder.paymentMethod,
+      paymentStatus: validOrder.paymentStatus,
+      settlementStatus: validOrder.settlementStatus,
+      discount: parseMoney(validOrder.discount),
+      deliveryCharged: parseMoney(validOrder.deliveryCharged),
+      refundAmount: 0,
+      courierCostSnapshot: parseMoney(validOrder.courierCostSnapshot),
+      packagingCostSnapshot: parseMoney(validOrder.packagingCostSnapshot),
+      items: [{ id: "item-1", productId: validOrder.items[0].productId, skuSnapshot: "SKU-1", productNameSnapshot: "Planner", listPriceSnapshot: 60000, buyingCostSnapshot: 28000, quantity: 2, actualUnitSellingPrice: parseMoney("580.75") }],
+    };
+    const prefilled = orderToManualOrderValues(existing);
+    expect(prefilled).toMatchObject({ orderNumber: validOrder.orderNumber, externalReference: "EXT-1", discount: "10.05", items: [{ quantity: 2, actualUnitSellingPrice: "580.75" }] });
+    const edit = toManualOrderEditValues(prefilled, existing.id, existing.updatedAt!);
+    expect(manualOrderEditSchema.parse(edit)).toEqual(edit);
+    const args = buildManualOrderEditRpcArgs(edit);
+    expect(args.p_order).not.toHaveProperty("order_number");
+    expect(args.p_order).not.toHaveProperty("order_status");
+    expect(args.p_order).not.toHaveProperty("payment_status");
+    expect(args.p_order).not.toHaveProperty("settlement_status");
+    expect(manualOrderEditSchema.safeParse({ ...edit, orderNumber: "CHANGED" }).success).toBe(false);
+    const unknownCosts = buildManualOrderEditRpcArgs(toManualOrderEditValues(prefilled, existing.id, existing.updatedAt!, { courier: true, packaging: true }));
+    expect(unknownCosts.p_order).toMatchObject({ courier_cost_snapshot: null, packaging_cost_snapshot: null });
+  });
+
+  it("recalculates edited item totals in integer poisha and locks recognized orders", () => {
+    const order = {
+      status: "Confirmed" as const,
+      hasImmutableFinancialSnapshot: false,
+      items: [{ id: "item-1", productId: validOrder.items[0].productId, skuSnapshot: "SKU-1", productNameSnapshot: "Planner", listPriceSnapshot: parseMoney("150"), quantity: 2, actualUnitSellingPrice: parseMoney("125.25"), buyingCostSnapshot: parseMoney("80") }],
+      discount: parseMoney("10.50"),
+      deliveryCharged: parseMoney("80"),
+      refundAmount: 0,
+      courierCostSnapshot: parseMoney("70"),
+      packagingCostSnapshot: parseMoney("5"),
+    };
+    expect(calculateOrderFinancials(order).orderTotal).toBe(parseMoney("320"));
+    expect(isOrderOrdinarilyEditable(order)).toBe(true);
+    expect(isOrderOrdinarilyEditable({ ...order, status: "Delivered" })).toBe(false);
+    expect(isOrderOrdinarilyEditable({ ...order, hasImmutableFinancialSnapshot: true })).toBe(false);
+  });
+
+  it("rejects invalid item links and reports stale edits safely", () => {
+    const edit = toManualOrderEditValues(validOrder, validOrder.items[0].productId, "2026-07-22T10:00:00+00:00");
+    expect(manualOrderEditSchema.safeParse({ ...edit, items: [{ ...edit.items[0], productId: "unknown" }] }).success).toBe(false);
+    expect(safeManualEntryError({ code: "40001", message: "private detail" })).toMatch(/changed after you opened/);
+    expect(safeManualEntryError({ code: "55000", message: "private detail" })).toMatch(/recognized financial records/);
   });
 });

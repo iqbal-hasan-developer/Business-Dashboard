@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { createManualOrder, createProductCatalogEntry, recordAdSpendEntry, recordExpenseEntry, updateManualOrderStatuses, updateProductBusinessData, upsertCampaignEntry } from "@/data/manual-entry-writes";
-import type { ManualOrderValues, OrderTransitionValues, ProductBusinessValues } from "@/domain/manual-entry";
+import { createManualOrder, createProductCatalogEntry, recordAdSpendEntry, recordExpenseEntry, updateManualOrder, updateManualOrderStatuses, updateProductBusinessData, upsertCampaignEntry } from "@/data/manual-entry-writes";
+import { toManualOrderEditValues, type ManualOrderValues, type OrderTransitionValues, type ProductBusinessValues } from "@/domain/manual-entry";
 
 type Client = Parameters<typeof createManualOrder>[0];
 
@@ -39,6 +39,23 @@ describe("manual-entry RPC repository", () => {
     });
   });
 
+  it("updates editable fields and items through one RPC without identity, status, or stock arguments", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: "82400000-0000-4000-8000-000000000001", error: null });
+    const values = toManualOrderEditValues(order, "82400000-0000-4000-8000-000000000001", "2026-07-22T10:00:00+00:00");
+    await expect(updateManualOrder(clientWith(rpc), values)).resolves.toBe(values.orderId);
+    expect(rpc).toHaveBeenCalledWith("update_dashboard_order", expect.objectContaining({
+      p_order_id: values.orderId,
+      p_expected_updated_at: values.expectedUpdatedAt,
+      p_items: [expect.objectContaining({ product_id: order.items[0].productId, quantity: 1 })],
+    }));
+    const payload = rpc.mock.calls[0][1].p_order;
+    expect(payload).not.toHaveProperty("order_number");
+    expect(payload).not.toHaveProperty("order_status");
+    expect(payload).not.toHaveProperty("payment_status");
+    expect(payload).not.toHaveProperty("settlement_status");
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty("stock");
+  });
+
   it("updates only private product metadata through its authorized RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: order.items[0].productId, error: null });
     const values: ProductBusinessValues = { productId: order.items[0].productId, buyingPrice: "280.25", reorderLevel: 10, skuOverride: "NN-001", variation: "Blue", internalNotes: "Verified" };
@@ -68,7 +85,7 @@ describe("manual-entry RPC repository", () => {
     const repository = readFileSync("src/data/manual-entry-writes.ts", "utf8");
     const actions = readFileSync("src/actions/manual-entry.ts", "utf8");
     const combined = `${repository}\n${actions}`;
-    expect(repository.match(/client\.rpc\(/g)).toHaveLength(8);
+    expect(repository.match(/client\.rpc\(/g)).toHaveLength(9);
     expect(combined).not.toMatch(/service[_-]?role|\.from\s*\(|decrement_product_stock|inventory|record_dashboard_refund|record_dashboard_return/i);
     expect(actions).toContain("requireDashboardUser()");
     expect(actions).toContain("resolveBusinessDataProvider() !== \"supabase\"");

@@ -33,6 +33,7 @@ describe("development Supabase connection contracts", () => {
       "record_expense",
       "set_product_buying_cost",
       "transition_dashboard_order",
+      "update_dashboard_order",
       "update_dashboard_product",
       "upsert_campaign",
     ]);

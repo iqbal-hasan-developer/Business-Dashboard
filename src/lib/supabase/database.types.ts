@@ -308,6 +308,10 @@ export type Database = {
         Args: { p_order: Json; p_items: Json };
         Returns: string;
       };
+      update_dashboard_order: {
+        Args: { p_order_id: string; p_expected_updated_at: string; p_order: Json; p_items: Json };
+        Returns: string;
+      };
       transition_dashboard_order: {
         Args: {
           p_order_id: string;

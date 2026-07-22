@@ -10,6 +10,7 @@ import {
   campaignEntrySchema,
   expenseEntrySchema,
   manualOrderSchema,
+  manualOrderEditSchema,
   orderTransitionSchema,
   productBusinessSchema,
   productCatalogSchema,
@@ -18,6 +19,7 @@ import {
 import {
   createProductCatalogEntry,
   createManualOrder,
+  updateManualOrder,
   recordAdSpendEntry,
   recordExpenseEntry,
   updateProductCatalogEntry,
@@ -119,6 +121,22 @@ export async function createOrderAction(input: unknown): Promise<ManualEntryActi
     return { ok: true, message: "Order saved successfully.", recordId: orderId };
   } catch (error) {
     return safeWriteError(error, "That order number already exists. Use a unique order number.");
+  }
+}
+
+export async function updateOrderAction(input: unknown): Promise<ManualEntryActionResult> {
+  const parsed = manualOrderEditSchema.safeParse(input);
+  if (!parsed.success) return validationResult(parsed.error);
+  const boundary = await requirePersistentWrite("update", ["owner", "admin"]);
+  if (boundary.error) return boundary.error;
+  try {
+    const orderId = await updateManualOrder(boundary.client, parsed.data);
+    for (const path of ["/orders", `/orders/${orderId}`, `/orders/${orderId}/edit`, "/dashboard", "/reports", "/data-checks"]) {
+      revalidatePath(path);
+    }
+    return { ok: true, message: "Order updated successfully.", recordId: orderId };
+  } catch (error) {
+    return safeWriteError(error, "A duplicate order number prevents this update.");
   }
 }
 

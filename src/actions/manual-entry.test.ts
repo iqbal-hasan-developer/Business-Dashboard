@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
   createClient: vi.fn(),
   createOrder: vi.fn(),
+  updateOrder: vi.fn(),
   updateStatuses: vi.fn(),
   updateProduct: vi.fn(),
   createProduct: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/auth/session", () => ({ requireDashboardUser: mocks.requireUser }
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: mocks.createClient }));
 vi.mock("@/data/manual-entry-writes", () => ({
   createManualOrder: mocks.createOrder,
+  updateManualOrder: mocks.updateOrder,
   updateManualOrderStatuses: mocks.updateStatuses,
   updateProductBusinessData: mocks.updateProduct,
   createProductCatalogEntry: mocks.createProduct,
@@ -31,7 +33,8 @@ vi.mock("@/data/manual-entry-writes", () => ({
   recordAdSpendEntry: mocks.recordAdSpend,
 }));
 
-import { createOrderAction, recordExpenseAction, saveProductAction, updateOrderStatusesAction } from "@/actions/manual-entry";
+import { createOrderAction, recordExpenseAction, saveProductAction, updateOrderAction, updateOrderStatusesAction } from "@/actions/manual-entry";
+import { toManualOrderEditValues } from "@/domain/manual-entry";
 
 const order: ManualOrderValues = {
   orderNumber: "NNM-20260719-001", externalReference: "", orderDate: "2026-07-19", customerName: "Customer",
@@ -86,6 +89,28 @@ describe("manual-entry server actions", () => {
     mocks.createOrder.mockRejectedValue({ code: "23505", message: "constraint details" });
     const result = await createOrderAction(order);
     expect(result).toEqual({ ok: false, message: "That order number already exists. Use a unique order number." });
+  });
+
+  it("updates an eligible order once through the authenticated owner client", async () => {
+    const client = { rpc: vi.fn() };
+    mocks.createClient.mockResolvedValue(client);
+    const values = toManualOrderEditValues(order, "82400000-0000-4000-8000-000000000001", "2026-07-22T10:00:00+00:00");
+    mocks.updateOrder.mockResolvedValue(values.orderId);
+    const result = await updateOrderAction(values);
+    expect(result).toMatchObject({ ok: true, recordId: values.orderId });
+    expect(mocks.updateOrder).toHaveBeenCalledOnce();
+    expect(mocks.updateOrder).toHaveBeenCalledWith(client, values);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/orders/${values.orderId}`);
+  });
+
+  it("fails edit closed for data-entry users and preserves a safe stale-edit error", async () => {
+    const values = toManualOrderEditValues(order, "82400000-0000-4000-8000-000000000001", "2026-07-22T10:00:00+00:00");
+    mocks.requireUser.mockResolvedValue({ id: "u2", email: "entry@example.invalid", displayName: "Entry", role: "data_entry" });
+    expect((await updateOrderAction(values)).ok).toBe(false);
+    expect(mocks.updateOrder).not.toHaveBeenCalled();
+    mocks.requireUser.mockResolvedValue({ id: "u1", email: "owner@example.invalid", displayName: "Owner", role: "owner" });
+    mocks.updateOrder.mockRejectedValue({ code: "40001", message: "private details" });
+    expect((await updateOrderAction(values)).message).toMatch(/changed after you opened/);
   });
 
   it("fails product and expense writes closed in mock mode", async () => {

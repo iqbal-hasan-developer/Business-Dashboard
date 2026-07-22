@@ -4,6 +4,7 @@ import {
   PAYMENT_METHODS,
   SALES_CHANNELS,
   type Money,
+  type Order,
 } from "@/domain/types";
 
 export const MANUAL_ORDER_STATUSES = [
@@ -127,6 +128,18 @@ export const manualOrderSchema = manualOrderFormSchema.extend({
   })).min(1, "Add at least one item").max(100),
 });
 
+export const manualOrderEditSchema = manualOrderSchema.omit({
+  orderNumber: true,
+  status: true,
+  paymentStatus: true,
+  settlementStatus: true,
+}).extend({
+  orderId: z.string().uuid(),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  courierCostSnapshotUnknown: z.boolean(),
+  packagingCostSnapshotUnknown: z.boolean(),
+}).strict();
+
 export const productBusinessSchema = z.object({
   productId: z.string().uuid(),
   buyingPrice: moneyInput,
@@ -144,6 +157,7 @@ export const orderTransitionSchema = z.object({
 });
 
 export type ManualOrderValues = z.infer<typeof manualOrderSchema>;
+export type ManualOrderEditValues = z.infer<typeof manualOrderEditSchema>;
 export type ProductBusinessValues = z.infer<typeof productBusinessSchema>;
 export type ProductCatalogValues = z.infer<typeof productCatalogSchema>;
 export type ExpenseEntryValues = z.infer<typeof expenseEntrySchema>;
@@ -158,6 +172,13 @@ export type ManualOrderRpcArgs = {
     quantity: number;
     actual_unit_selling_price: number;
   }>;
+};
+
+export type ManualOrderEditRpcArgs = {
+  p_order_id: string;
+  p_expected_updated_at: string;
+  p_order: Record<string, string | null>;
+  p_items: ManualOrderRpcArgs["p_items"];
 };
 
 function money(value: string): Money {
@@ -198,6 +219,116 @@ export function buildManualOrderRpcArgs(values: ManualOrderValues): ManualOrderR
   };
 }
 
+export function buildManualOrderEditRpcArgs(values: ManualOrderEditValues): ManualOrderEditRpcArgs {
+  return {
+    p_order_id: values.orderId,
+    p_expected_updated_at: values.expectedUpdatedAt,
+    p_order: {
+      external_reference: values.externalReference || null,
+      order_date: values.orderDate,
+      customer_name: values.customerName,
+      customer_phone: values.customerPhone,
+      customer_address: values.customerAddress,
+      customer_note: values.customerNote || null,
+      delivery_area: values.customerLocation,
+      customer_location: values.customerLocation,
+      courier: values.courier,
+      sales_channel: values.channel,
+      campaign_name: values.campaign || null,
+      payment_method: values.paymentMethod,
+      discount_amount: moneyToDatabaseNumber(money(values.discount)).toString(),
+      delivery_charged: moneyToDatabaseNumber(money(values.deliveryCharged)).toString(),
+      courier_cost_snapshot: values.courierCostSnapshotUnknown
+        ? null
+        : moneyToDatabaseNumber(money(values.courierCostSnapshot)).toString(),
+      packaging_cost_snapshot: values.packagingCostSnapshotUnknown
+        ? null
+        : moneyToDatabaseNumber(money(values.packagingCostSnapshot)).toString(),
+    },
+    p_items: values.items.map((item) => ({
+      product_id: item.productId,
+      quantity: item.quantity,
+      actual_unit_selling_price: moneyToDatabaseNumber(money(item.actualUnitSellingPrice)),
+    })),
+  };
+}
+
+function moneyInputValue(value: Money): string {
+  const whole = Math.floor(value / 100);
+  const fraction = String(value % 100).padStart(2, "0");
+  return fraction === "00" ? String(whole) : `${whole}.${fraction}`;
+}
+
+export function orderToManualOrderValues(order: Order): ManualOrderValues {
+  if (!MANUAL_ORDER_STATUSES.includes(order.status as (typeof MANUAL_ORDER_STATUSES)[number])
+    || !MANUAL_PAYMENT_STATUSES.includes(order.paymentStatus as (typeof MANUAL_PAYMENT_STATUSES)[number])
+    || !MANUAL_SETTLEMENT_STATUSES.includes(order.settlementStatus as (typeof MANUAL_SETTLEMENT_STATUSES)[number])) {
+    throw new Error("This order uses a workflow state that the ordinary edit form does not support.");
+  }
+  return {
+    orderNumber: order.orderNumber,
+    externalReference: order.externalReference ?? "",
+    orderDate: order.orderDate,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone ?? "",
+    customerAddress: order.customerAddress ?? "",
+    customerNote: order.customerNote ?? "",
+    customerLocation: order.customerLocation,
+    courier: order.courier,
+    channel: order.channel,
+    campaign: order.campaign === "Unattributed" ? "" : order.campaign,
+    status: order.status as ManualOrderValues["status"],
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus as ManualOrderValues["paymentStatus"],
+    settlementStatus: order.settlementStatus as ManualOrderValues["settlementStatus"],
+    discount: moneyInputValue(order.discount),
+    deliveryCharged: moneyInputValue(order.deliveryCharged),
+    courierCostSnapshot: moneyInputValue(order.courierCostSnapshot),
+    packagingCostSnapshot: moneyInputValue(order.packagingCostSnapshot),
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      actualUnitSellingPrice: moneyInputValue(item.actualUnitSellingPrice),
+    })),
+  };
+}
+
+export function toManualOrderEditValues(
+  values: ManualOrderValues,
+  orderId: string,
+  expectedUpdatedAt: string,
+  unknownSnapshots: { courier: boolean; packaging: boolean } = { courier: false, packaging: false },
+): ManualOrderEditValues {
+  return {
+    orderId,
+    expectedUpdatedAt,
+    courierCostSnapshotUnknown: unknownSnapshots.courier,
+    packagingCostSnapshotUnknown: unknownSnapshots.packaging,
+    externalReference: values.externalReference,
+    orderDate: values.orderDate,
+    customerName: values.customerName,
+    customerPhone: values.customerPhone,
+    customerAddress: values.customerAddress,
+    customerNote: values.customerNote,
+    customerLocation: values.customerLocation,
+    courier: values.courier,
+    channel: values.channel,
+    campaign: values.campaign,
+    paymentMethod: values.paymentMethod,
+    discount: values.discount,
+    deliveryCharged: values.deliveryCharged,
+    courierCostSnapshot: values.courierCostSnapshot,
+    packagingCostSnapshot: values.packagingCostSnapshot,
+    items: values.items,
+  };
+}
+
+const FINANCIALLY_LOCKED_ORDER_STATUSES = new Set(["Delivered", "Returned", "Refunded"]);
+
+export function isOrderOrdinarilyEditable(order: Pick<Order, "status" | "hasImmutableFinancialSnapshot">): boolean {
+  return !FINANCIALLY_LOCKED_ORDER_STATUSES.has(order.status) && !order.hasImmutableFinancialSnapshot;
+}
+
 export function createSubmissionGuard() {
   let locked = false;
   return {
@@ -220,5 +351,7 @@ export function safeManualEntryError(error: unknown, duplicateLabel?: string): s
   if (code === "42501") return "Your dashboard role is not allowed to perform this update.";
   if (code === "22023") return "The database rejected one or more invalid values.";
   if (code === "P0002") return "The requested record no longer exists.";
+  if (code === "40001") return "This order changed after you opened it. Reload the latest values before editing again.";
+  if (code === "55000") return "This order is locked because recognized financial records require a controlled correction workflow.";
   return "The record could not be saved. No changes were made.";
 }

@@ -78,6 +78,8 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  updatedAt?: string;
+  hasImmutableFinancialSnapshot?: boolean;
   orderNumber: string;
   externalReference?: string;
   orderDate: string;
@@ -99,6 +101,8 @@ export interface Order {
   refundAmount: Money;
   courierCostSnapshot: Money;
   packagingCostSnapshot: Money;
+  courierCostSnapshotKnown?: boolean;
+  packagingCostSnapshotKnown?: boolean;
 }
 
 export interface Expense {
