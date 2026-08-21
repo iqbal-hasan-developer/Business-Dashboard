@@ -80,9 +80,9 @@ describe("manual-entry validation and RPC mapping", () => {
   it("validates product catalog, expense, campaign, and ad-spend money without floats", () => {
     expect(productCatalogSchema.safeParse({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "580.25", isActive: true, categoryId: null, buyingPrice: "280.15", reorderLevel: 0, dashboardSku: "DASH-1", variation: "", internalNotes: "" }).success).toBe(true);
     expect(productCatalogSchema.safeParse({ name: "Planner", slug: "Planner Bad", publicSku: "PUB-1", sellingPrice: "1.001", isActive: true, categoryId: null, buyingPrice: "0", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" }).success).toBe(false);
-    expect(expenseEntrySchema.safeParse({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "15.25", paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "" }).success).toBe(true);
+    expect(expenseEntrySchema.safeParse({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "15.25", paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "business_account_paid", paymentDate: "2026-07-19", businessAccountKey: "cash", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000091" }).success).toBe(true);
     expect(campaignEntrySchema.safeParse({ name: "Launch", channel: "Meta", startsOn: "2026-07-20", endsOn: "2026-07-19", budget: "100", isActive: true }).success).toBe(false);
-    expect(adSpendEntrySchema.safeParse({ campaignId: "82100000-0000-4000-8000-000000000001", spendDate: "2026-07-19", platform: "Meta", amount: "10.005", sourceReference: "" }).success).toBe(false);
+    expect(adSpendEntrySchema.safeParse({ campaignId: "82100000-0000-4000-8000-000000000001", spendDate: "2026-07-19", platform: "Meta", amount: "10.005", sourceReference: "", fundingTreatment: "unpaid", paymentDate: "", businessAccountKey: "", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000092" }).success).toBe(false);
   });
 
   it("locks duplicate submissions until the active save releases", () => {

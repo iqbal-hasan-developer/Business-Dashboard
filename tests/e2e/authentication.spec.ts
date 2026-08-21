@@ -11,6 +11,7 @@ test.describe("fail-closed dashboard authentication", () => {
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login\?.*next=%2Fdashboard/);
+    await expect(page.getByRole("img", { name: "NexaNotion" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Business Dashboard" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
@@ -29,7 +30,7 @@ test.describe("fail-closed dashboard authentication", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  for (const path of ["/products", "/orders", "/orders/new", "/marketing", "/expenses", "/cash-settlements", "/reports", "/data-checks", "/settings"]) {
+  for (const path of ["/products", "/orders", "/orders/new", "/marketing", "/expenses", "/cash-settlements", "/reports", "/data-checks", "/settings", "/exports/orders", "/exports/products", "/exports/financial-report"]) {
     test(`denies an anonymous request to ${path}`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/login\?/);

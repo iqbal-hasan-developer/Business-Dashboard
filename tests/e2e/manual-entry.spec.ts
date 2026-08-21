@@ -1,10 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 test.skip(process.env.BUSINESS_DATA_PROVIDER !== "mock", "Manual-entry fail-closed checks require explicit isolated mock mode.");
 
 test("manual order UI remains usable but cannot persist in mock mode", async ({ page }) => {
   await page.goto("/orders/new");
   await expect(page.getByText("Isolated mock mode", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Courier cost snapshot (BDT)")).toHaveValue("65");
+  await expect(page.getByLabel("Packaging cost snapshot (BDT)")).toHaveValue("2");
+  await page.getByLabel("Customer location").click();
+  await page.getByRole("option", { name: "Outside Dhaka" }).click();
+  await expect(page.getByLabel("Courier cost snapshot (BDT)")).toHaveValue("115");
   await page.getByLabel("Order number").fill("NNM-MOCK-UNSAVED");
   await page.getByLabel("Customer name").fill("Mock Customer");
   await page.getByLabel("Customer phone").fill("01700000000");
@@ -53,4 +60,21 @@ test("eligible orders expose a prefilled edit form while recognized orders stay 
   await expect(page.getByRole("link", { name: "Edit order" })).toHaveCount(0);
   await page.goto("/orders/o1/edit");
   await expect(page.getByText("Order locked", { exact: true })).toBeVisible();
+});
+
+test("Paid non-COD orders expose the controlled customer receipt summary and fail closed in mock mode", async ({ page }, testInfo) => {
+  const runtimeErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") runtimeErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+
+  await page.goto("/orders/o5");
+  await expect(page.getByRole("heading", { name: "Customer payment receipt" })).toBeVisible();
+  await expect(page.getByText("Records actual non-COD money received.")).toBeVisible();
+  await expect(page.getByText("bKash", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Record payment receipt" })).toBeDisabled();
+  await page.getByRole("heading", { name: "Customer payment receipt" }).locator("xpath=ancestor::section")
+    .screenshot({ path: join(tmpdir(), `nexanotion-customer-payment-${testInfo.project.name}.png`) });
+  expect(runtimeErrors).toEqual([]);
 });

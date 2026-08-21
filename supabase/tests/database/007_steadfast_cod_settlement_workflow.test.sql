@@ -13,7 +13,10 @@ select has_function('public', 'record_steadfast_cod_settlement', array['date','t
 
 select ok(
   procedure.prosecdef and exists (
-    select 1 from unnest(procedure.proconfig) setting where setting = 'search_path='
+    select 1
+    from unnest(coalesce(procedure.proconfig, array[]::text[])) setting
+    where split_part(setting, '=', 1) = 'search_path'
+      and btrim(split_part(setting, '=', 2), '"') = ''
   ),
   'settlement RPC is SECURITY DEFINER with an empty fixed search path'
 )
@@ -21,10 +24,10 @@ from pg_proc procedure
 where procedure.oid = 'public.record_steadfast_cod_settlement(date,text,numeric,numeric,numeric,jsonb,uuid,text,text,text,text,text)'::regprocedure;
 
 select ok(
-  has_function_privilege('authenticated', 'public.record_steadfast_cod_settlement(date,text,numeric,numeric,numeric,jsonb,uuid,text,text,text,text,text)', 'EXECUTE')
+  not has_function_privilege('authenticated', 'public.record_steadfast_cod_settlement(date,text,numeric,numeric,numeric,jsonb,uuid,text,text,text,text,text)', 'EXECUTE')
   and not has_function_privilege('anon', 'public.record_steadfast_cod_settlement(date,text,numeric,numeric,numeric,jsonb,uuid,text,text,text,text,text)', 'EXECUTE')
   and not has_function_privilege('service_role', 'public.record_steadfast_cod_settlement(date,text,numeric,numeric,numeric,jsonb,uuid,text,text,text,text,text)', 'EXECUTE'),
-  'only authenticated dashboard callers can reach the settlement RPC'
+  'retired v1 settlement RPC cannot bypass the current v3 workflow'
 );
 
 select ok(
@@ -50,7 +53,7 @@ select ok(
 );
 
 select ok(
-  exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'settlement_order_allocations_order_unique')
+  exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'settlement_order_allocations_order_history_idx')
   and exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'cash_movements_settlement_unique')
   and exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'settlement_records_idempotency_key_unique'),
   'unique evidence and idempotency indexes are installed'

@@ -26,14 +26,41 @@ describe("development Supabase connection contracts", () => {
     expect(source).not.toContain("decrement_product_stock");
     const rpcNames = [...new Set([...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]))].sort();
     expect(rpcNames).toEqual([
+      "classify_historical_financial_source",
       "create_dashboard_order",
       "create_dashboard_product",
+      "delete_dashboard_ad_spend",
+      "delete_dashboard_expense",
+      "edit_dashboard_ad_spend",
+      "edit_dashboard_expense",
+      "edit_dashboard_owner_capital_movement",
+      "get_business_order_defaults",
+      "get_dashboard_data_quality_checks",
       "get_dashboard_financial_summary",
-      "record_daily_ad_spend",
-      "record_expense",
-      "record_steadfast_cod_settlement",
+      "get_dashboard_procurement_summary",
+      "get_dashboard_product_financials",
+      "pay_unpaid_financial_source",
+      "record_cash_account_balance_observation",
+      "record_customer_payment_receipt",
+      "record_dashboard_cash_movement",
+      "record_funded_ad_spend",
+      "record_funded_expense",
+      "record_owner_capital_return_from_held",
+      "record_owner_held_balance_observation",
+      "record_owner_held_fund_transfer",
+      "record_owner_money_taken",
+      "record_steadfast_cod_settlement_v3",
+      "record_steadfast_receivable_observation",
+      "reverse_dashboard_cash_movement",
+      "reverse_financial_source_funding",
+      "reverse_owner_capital_return_from_held",
+      "reverse_owner_held_fund_transfer",
+      "reverse_owner_money_taken",
+      "reverse_steadfast_cod_settlement",
       "set_product_buying_cost",
       "transition_dashboard_order",
+      "update_business_financial_defaults",
+      "update_dashboard_campaign_performance",
       "update_dashboard_order",
       "update_dashboard_product",
       "upsert_campaign",
@@ -66,9 +93,11 @@ describe("development Supabase connection contracts", () => {
     expect(supabaseRepository).not.toContain("aggregateDashboardData");
     expect(supabaseRepository).not.toContain("calculateOrderFinancials");
     expect(supabaseRepository).toContain('.rpc("get_dashboard_financial_summary"');
+    expect(supabaseRepository).toContain('.rpc("get_dashboard_product_financials"');
     expect(supabaseRepository).toContain('.from("dashboard_order_financials")');
     expect(supabaseRepository).toContain('.from("dashboard_daily_financials")');
     expect(supabaseRepository).toContain('.from("dashboard_reconciliation")');
-    expect(supabaseRepository).toContain('.from("dashboard_data_quality_checks")');
+    expect(supabaseRepository).toContain('.rpc("get_dashboard_data_quality_checks"');
+    expect(supabaseRepository).toContain('.rpc("get_dashboard_procurement_summary"');
   });
 });

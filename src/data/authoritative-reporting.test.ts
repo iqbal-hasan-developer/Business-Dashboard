@@ -6,6 +6,8 @@ import {
   financialSummariesMatch,
   financialSummaryRowSchema,
   orderFinancialRowSchema,
+  productFinancialRowSchema,
+  selectCurrentUnsettledCodRows,
   summarizeOrderFinancialRows,
 } from "@/data/authoritative-reporting";
 
@@ -48,6 +50,8 @@ function recognizedOrder(overrides: Record<string, unknown> = {}) {
     recognized_cogs: "40.00",
     gross_profit: "45.00",
     contribution_profit: "35.00",
+    recognized_courier_cost: "8.00",
+    recognized_packaging_cost: "2.00",
     ...overrides,
   });
 }
@@ -100,10 +104,71 @@ describe("authoritative reporting contracts", () => {
     expect(daily.contribution_profit).toBeNull();
   });
 
+  it("validates every product-financial numeric and preserves exact poisha and null costs", () => {
+    const product = productFinancialRowSchema.parse({
+      product_id: "00000000-0000-4000-8000-000000000010",
+      sku: "NN-010",
+      product_name: "Planner",
+      delivered_order_count: "2",
+      delivered_units: 3,
+      returned_units: "1",
+      gross_product_revenue: "1234.50",
+      allocated_delivery_revenue: "120.05",
+      allocated_discount: "34.25",
+      allocated_refund: "200.10",
+      adjusted_product_net_revenue: "1120.20",
+      recognized_cogs: null,
+      gross_profit: null,
+      allocated_courier_cost: "70.00",
+      allocated_packaging_cost: "2.00",
+      contribution_profit: null,
+    });
+
+    expect(product).toMatchObject({
+      delivered_order_count: 2,
+      delivered_units: 3,
+      returned_units: 1,
+      gross_product_revenue: 123450,
+      allocated_delivery_revenue: 12005,
+      allocated_discount: 3425,
+      allocated_refund: 20010,
+      adjusted_product_net_revenue: 112020,
+      recognized_cogs: null,
+      allocated_courier_cost: 7000,
+      allocated_packaging_cost: 200,
+      contribution_profit: null,
+    });
+  });
+
+  it("rejects imprecise or structurally drifted product-financial responses", () => {
+    const valid = {
+      product_id: "00000000-0000-4000-8000-000000000010",
+      sku: "NN-010",
+      product_name: "Planner",
+      delivered_order_count: 1,
+      delivered_units: 1,
+      returned_units: 0,
+      gross_product_revenue: "100.00",
+      allocated_delivery_revenue: "0.00",
+      allocated_discount: "0.00",
+      allocated_refund: "0.00",
+      adjusted_product_net_revenue: "100.00",
+      recognized_cogs: "40.00",
+      gross_profit: "60.00",
+      allocated_courier_cost: "0.00",
+      allocated_packaging_cost: "0.00",
+      contribution_profit: "60.00",
+    };
+    expect(() => productFinancialRowSchema.parse({ ...valid, adjusted_product_net_revenue: "99.999" })).toThrow();
+    expect(() => productFinancialRowSchema.parse({ ...valid, unexpected: 1 })).toThrow();
+  });
+
   it("uses refund-adjusted recognized rows and reconciles exact money totals", () => {
     const detail = recognizedOrder();
     const summary = summarizeOrderFinancialRows([detail], 1000, 500);
     expect(detail.recognized_refund_amount).toBe(2000);
+    expect(detail.recognized_courier_cost).toBe(800);
+    expect(detail.recognized_packaging_cost).toBe(200);
     expect(summary.net_revenue).toBe(8500);
     expect(summary.contribution_profit).toBe(3500);
     expect(summary.net_profit).toBe(2000);
@@ -120,6 +185,29 @@ describe("authoritative reporting contracts", () => {
     });
     const filtered = [selected, excluded].filter((row) => row.sales_channel === "Website" && row.campaign_id === null);
     expect(summarizeOrderFinancialRows(filtered, 0, 0).delivered_order_count).toBe(1);
+  });
+
+  it("uses current reversal-aware eligibility instead of the immutable settlement snapshot", () => {
+    const settledAfterDelivery = recognizedOrder({
+      order_id: "00000000-0000-4000-8000-000000000001",
+      settlement_status: "Awaiting",
+    });
+    const eligibleAfterReversal = recognizedOrder({
+      order_id: "00000000-0000-4000-8000-000000000002",
+      settlement_status: "Settled",
+    });
+    const nonCod = recognizedOrder({
+      order_id: "00000000-0000-4000-8000-000000000003",
+      payment_method: "bKash",
+    });
+
+    const current = selectCurrentUnsettledCodRows(
+      [settledAfterDelivery, eligibleAfterReversal, nonCod],
+      new Set([eligibleAfterReversal.order_id, nonCod.order_id]),
+    );
+
+    expect(current.map((row) => row.order_id)).toEqual([eligibleAfterReversal.order_id]);
+    expect(current.reduce((total, row) => total + row.net_revenue, 0)).toBe(8500);
   });
 
   it("rejects missing or extra RPC/view fields", () => {

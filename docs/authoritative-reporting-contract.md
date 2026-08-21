@@ -57,7 +57,9 @@ One row per immutable Delivered recognition snapshot. Its exact row shape is:
   `recognized_discount_amount numeric(14,2)`,
   `recognized_refund_amount numeric(14,2)`, `net_revenue numeric(14,2)`,
   `recognized_cogs numeric(14,2) null`, `gross_profit numeric(14,2) null`,
-  and `contribution_profit numeric(14,2) null`.
+  `contribution_profit numeric(14,2) null`,
+  `recognized_courier_cost numeric(14,2) null`, and
+  `recognized_packaging_cost numeric(14,2) null`.
 
 The view adds all append-only `refund` adjustment deltas to the original refund
 snapshot. The original snapshot is never updated by reporting.
@@ -119,7 +121,7 @@ recognized truth.
 | Inventory Value | current `products.stock` multiplied by private `product_business_data.buying_price` on the server |
 | Daily revenue/contribution | `dashboard_daily_financials`, or filtered `dashboard_order_financials` when a dimension is selected |
 | Revenue versus ad spend | daily recognition source plus filtered `daily_ad_spend` ledger |
-| Expense breakdown | filtered `expenses` ledger |
+| Expense and ad-spend breakdown | recognized COGS, courier and packaging snapshots from `dashboard_order_financials`, filtered `daily_ad_spend`, and operating categories from filtered `expenses`; unallocated procurement remains excluded |
 | Recent orders | bounded operational query; its displayed total is explicitly labeled operational |
 | Reconciliation and data quality | `dashboard_reconciliation` and `dashboard_data_quality_checks` |
 
@@ -138,24 +140,21 @@ recognized truth.
 - Any RPC/view error or schema mismatch reaches the protected route error state;
   connected mode never falls back to mock or mutable financial calculations.
 
-## Known installed-contract gap
+## Product financial reporting
 
-The installed recognition ledger has no immutable product-level allocation view.
-It is therefore impossible to produce authoritative Top Products revenue without
-falling back to mutable `order_items` or inventing a refund-allocation rule. The
-connected panel fails closed as unavailable. A future reviewed migration must add
-an immutable product-level recognition contract before that chart can be enabled.
+The installed recognition ledger includes the immutable product-level allocation
+contract from
+`supabase/migrations/202607170000_product_financial_recognition_allocations.sql`
+and its refund-scope repair. Connected Top Products reporting calls
+`get_dashboard_product_financials` through the authenticated owner JWT/RLS path;
+it never derives recognized revenue from mutable `order_items`.
 
-An approved canonical candidate now exists at
-`supabase/migrations/202607170000_product_financial_recognition_allocations.sql`.
-It is not installed, its timestamp is not recorded, and Top Products remains
-disconnected until the development application rehearsal and later application
-integration are separately accepted.
-
-The development rehearsal must preserve aligned migration history by previewing
-only `202607170000` with `supabase db push --dry-run --linked`, then using
-`supabase db push --linked` only after separate approval. Manual SQL Editor
-execution of the canonical migration is prohibited.
+The dashboard requests at most five rows for the selected date, channel, campaign,
+and order-status filters. The RPC ranks those rows by Adjusted Product Net Revenue,
+so the chart maps that same refund-adjusted exact-numeric value into integer poisha.
+Every returned count and financial field is validated before rendering. An RPC or
+schema mismatch reaches the protected route error state instead of falling back to
+mock or mutable calculations.
 
 ## Live read-only verification
 

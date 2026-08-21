@@ -5,16 +5,15 @@ import { can } from "@/lib/auth/authorization";
 import { requireDashboardUser } from "@/lib/auth/session";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { settlementEntrySchema, safeSettlementError } from "@/domain/settlements";
+import { settlementEntrySchema, settlementReversalSchema, safeSettlementError } from "@/domain/settlements";
 import type { Money, SettlementEligibleOrder } from "@/domain/types";
-import { recordSteadfastSettlement } from "@/data/settlement-writes";
+import { databaseNumericToMoney } from "@/data/authoritative-reporting";
+import { recordSteadfastSettlement, reverseSteadfastSettlement } from "@/data/settlement-writes";
 
 export type SettlementActionResult = { ok: boolean; message: string; recordId?: string; fieldErrors?: Record<string, string[]> };
 
 function databaseMoney(value: number): Money {
-  const poisha = Math.round(Number(value) * 100);
-  if (!Number.isSafeInteger(poisha)) throw new Error("Settlement money is outside the supported range.");
-  return poisha;
+  return databaseNumericToMoney(value);
 }
 
 export async function recordSteadfastSettlementAction(input: unknown): Promise<SettlementActionResult> {
@@ -36,7 +35,24 @@ export async function recordSteadfastSettlementAction(input: unknown): Promise<S
     }));
     const recordId = await recordSteadfastSettlement(client, parsed.data, eligibleOrders);
     ["/cash-settlements", "/orders", "/dashboard", "/reports", "/data-checks"].forEach((path) => revalidatePath(path));
-    return { ok: true, message: "Steadfast COD settlement confirmed with linked allocations and cash receipt.", recordId };
+    return { ok: true, message: parsed.data.receiptTreatment === "owner_held_business_funds"
+      ? "Steadfast COD settlement confirmed with exact Due-from-Owner allocations."
+      : "Steadfast COD settlement confirmed with linked allocations and cash receipt.", recordId };
+  } catch (error) {
+    return { ok: false, message: safeSettlementError(error) };
+  }
+}
+
+export async function reverseSteadfastSettlementAction(input: unknown): Promise<SettlementActionResult> {
+  const parsed = settlementReversalSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "A valid date and reversal reason are required.", fieldErrors: parsed.error.flatten().fieldErrors };
+  if (resolveBusinessDataProvider() !== "supabase") return { ok: false, message: "Settlement reversal is unavailable in isolated mock mode." };
+  const user = await requireDashboardUser();
+  if (user.role !== "owner") return { ok: false, message: "Only the owner may reverse a confirmed settlement." };
+  try {
+    const recordId = await reverseSteadfastSettlement(await createServerSupabaseClient(), parsed.data);
+    ["/cash-settlements", "/orders", "/dashboard", "/reports", "/data-checks"].forEach((path) => revalidatePath(path));
+    return { ok: true, message: "Settlement receipt reversal evidence appended; affected orders returned to Awaiting.", recordId };
   } catch (error) {
     return { ok: false, message: safeSettlementError(error) };
   }

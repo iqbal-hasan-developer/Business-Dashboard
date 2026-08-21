@@ -116,7 +116,7 @@ describe("manual-entry server actions", () => {
   it("fails product and expense writes closed in mock mode", async () => {
     mocks.provider.mockReturnValue("mock");
     const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
-    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "" });
+    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "unpaid", paymentDate: "", businessAccountKey: "", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000091" });
     expect(product.ok).toBe(false); expect(expense.ok).toBe(false);
     expect(mocks.createProduct).not.toHaveBeenCalled(); expect(mocks.recordExpense).not.toHaveBeenCalled();
   });
@@ -126,7 +126,7 @@ describe("manual-entry server actions", () => {
     mocks.createProduct.mockResolvedValue("82100000-0000-4000-8000-000000000001");
     mocks.recordExpense.mockResolvedValue("82200000-0000-4000-8000-000000000001");
     const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
-    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "" });
+    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "business_account_paid", paymentDate: "2026-07-19", businessAccountKey: "cash", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000092" });
     expect(product.ok).toBe(true); expect(expense.ok).toBe(true);
     expect(mocks.createProduct).toHaveBeenCalledWith(client, expect.objectContaining({ publicSku: "PUB-1" }));
     expect(mocks.recordExpense).toHaveBeenCalledWith(client, expect.objectContaining({ amount: "10" }));

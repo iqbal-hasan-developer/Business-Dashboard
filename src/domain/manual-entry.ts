@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { parseMoney, moneyToDatabaseNumber } from "@/domain/money";
+import { expenseEntrySchema, type ExpenseEntryValues } from "@/domain/expenses";
+import { fundingFields, validateFunding } from "@/domain/funding";
 import {
   PAYMENT_METHODS,
   SALES_CHANNELS,
@@ -61,16 +63,7 @@ export const productCatalogSchema = z.object({
   internalNotes: z.string().trim().max(1_000),
 });
 
-export const expenseEntrySchema = z.object({
-  expenseDate: isoDate,
-  categoryKey: z.string().trim().min(2, "Category is required").max(80),
-  description: z.string().trim().min(2, "Description is required").max(500),
-  amount: moneyInput.refine((value) => parseMoney(value) > 0, "Amount must be greater than zero"),
-  paymentMethod: z.string().trim().max(80),
-  campaignId: z.string().uuid().nullable(),
-  salesChannel: z.string().trim().max(100),
-  reference: z.string().trim().max(160),
-});
+export { expenseEntrySchema };
 
 export const campaignEntrySchema = z.object({
   campaignId: z.string().uuid().optional(),
@@ -92,7 +85,8 @@ export const adSpendEntrySchema = z.object({
   platform: z.string().trim().min(2, "Platform is required").max(100),
   amount: moneyInput,
   sourceReference: z.string().trim().max(160),
-});
+  ...fundingFields,
+}).superRefine(validateFunding);
 
 const manualOrderFields = {
   orderNumber: z.string().trim().min(3, "Order number is required").max(80),
@@ -166,7 +160,7 @@ export type ManualOrderValues = z.infer<typeof manualOrderSchema>;
 export type ManualOrderEditValues = z.infer<typeof manualOrderEditSchema>;
 export type ProductBusinessValues = z.infer<typeof productBusinessSchema>;
 export type ProductCatalogValues = z.infer<typeof productCatalogSchema>;
-export type ExpenseEntryValues = z.infer<typeof expenseEntrySchema>;
+export type { ExpenseEntryValues };
 export type CampaignEntryValues = z.infer<typeof campaignEntrySchema>;
 export type AdSpendEntryValues = z.infer<typeof adSpendEntrySchema>;
 export type OrderTransitionValues = z.infer<typeof orderTransitionSchema>;

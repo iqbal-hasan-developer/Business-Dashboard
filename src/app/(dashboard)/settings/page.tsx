@@ -1,7 +1,12 @@
-import { Settings } from "lucide-react";
 import { PageHeading } from "@/components/page-heading";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { SettingsForm } from "@/components/settings/settings-form";
+import { getBusinessRepository } from "@/data/provider";
+import { requireDashboardUser } from "@/lib/auth/session";
+import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 
-export default function SettingsPage() {
-  return <><PageHeading title="Settings" description="Review the development connection state without changing business data." /><Empty className="panel min-h-80"><EmptyHeader><EmptyMedia variant="icon"><Settings /></EmptyMedia><EmptyTitle>Settings editing is not enabled</EmptyTitle><EmptyDescription>The application connection is read-only during this checkpoint. No defaults or financial settings can be changed.</EmptyDescription></EmptyHeader></Empty></>;
+export default async function SettingsPage() {
+  const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
+  const settings = await repository.getBusinessSettings();
+  const enabled = resolveBusinessDataProvider() === "supabase" && user.role === "owner";
+  return <><PageHeading title="Settings" description="Manage owner-approved defaults without rewriting historical order snapshots." /><SettingsForm settings={settings} enabled={enabled} /></>;
 }

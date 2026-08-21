@@ -7,6 +7,12 @@ create temporary table financial_test_ids (
   id uuid not null
 ) on commit drop;
 
+create temporary table financial_test_baseline
+on commit drop
+as
+select delivered_order_count, product_revenue, net_revenue
+from public.dashboard_reconciliation;
+
 insert into financial_test_ids values
   ('category', gen_random_uuid()),
   ('product', gen_random_uuid()),
@@ -237,12 +243,22 @@ where orders.name = 'pending_order' and product.name = 'product';
 
 select is(
   (select product_revenue from public.dashboard_reconciliation),
-  200.00::numeric,
+  (
+    select product_revenue + 200.00::numeric
+    from financial_test_baseline
+  ),
   'non-Delivered item revenue is excluded from Product Revenue'
 );
 select is(
   (select average_order_value from public.dashboard_reconciliation),
-  240.00::numeric,
+  (
+    select round(
+      (net_revenue + 240.00::numeric)
+        / (delivered_order_count + 1)::numeric,
+      2
+    )
+    from financial_test_baseline
+  ),
   'Average Order Value uses only recognized Delivered orders'
 );
 

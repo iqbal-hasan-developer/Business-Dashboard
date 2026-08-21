@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3, Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardCheck,
   LayoutDashboard, LogOut, Megaphone, PackagePlus, Plus, ReceiptText, Search,
-  Settings, ShoppingBag, SlidersHorizontal, Sparkles, WalletCards,
+  Settings, ShoppingBag, SlidersHorizontal, WalletCards,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,13 +81,13 @@ function NavGroup({ label, items }: { label: string; items: typeof primaryNav })
 function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
-      <SidebarHeader className="h-16 justify-center border-b border-sidebar-border px-4">
-        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-950/20"><Sparkles className="size-4" /></span>
-          <span className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <span className="block text-sm font-semibold tracking-tight text-white">NexaNotion</span>
-            <span className="block text-[11px] text-sidebar-foreground/55">Business workspace</span>
-          </span>
+      <SidebarHeader className="h-24 justify-center border-b border-sidebar-border px-3 group-data-[collapsible=icon]:h-16">
+        <Link
+          href="/dashboard"
+          aria-label="NexaNotion dashboard"
+          className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white px-3 py-2 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:p-1"
+        >
+          <BrandLogo priority className="max-h-16 w-auto group-data-[collapsible=icon]:max-h-7" />
         </Link>
       </SidebarHeader>
       <SidebarContent className="py-3">
@@ -135,7 +136,13 @@ function TopBar({ user }: { user: DashboardUser }) {
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 text-white backdrop-blur md:border-border md:bg-white/95 md:px-6 md:text-foreground">
       <SidebarTrigger className="text-white hover:bg-sidebar-accent hover:text-white md:hidden" />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 truncate text-base font-semibold tracking-tight text-white md:hidden"><Sparkles className="size-4 text-cyan-400" /> NexaNotion</p>
+        <Link
+          href="/dashboard"
+          aria-label="NexaNotion dashboard"
+          className="flex h-9 w-[112px] items-center justify-center rounded-lg bg-white px-2 py-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-white md:hidden"
+        >
+          <BrandLogo priority className="max-h-8 w-auto" />
+        </Link>
         <PageBreadcrumbs pathname={pathname} />
       </div>
       <InputGroup className="hidden h-9 max-w-[260px] bg-muted/50 lg:flex">

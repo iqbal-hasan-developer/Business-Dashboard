@@ -88,7 +88,7 @@ export async function updateProductCatalogEntry(client: SupabaseClient, values: 
 }
 
 export async function recordExpenseEntry(client: SupabaseClient, values: ExpenseEntryValues) {
-  const { data, error } = await client.rpc("record_expense", {
+  const { data, error } = await client.rpc("record_funded_expense", {
     p_expense_date: values.expenseDate,
     p_category_key: values.categoryKey,
     p_description: values.description,
@@ -97,6 +97,11 @@ export async function recordExpenseEntry(client: SupabaseClient, values: Expense
     p_campaign_id: values.campaignId,
     p_sales_channel: optional(values.salesChannel),
     p_reference: optional(values.reference),
+    p_funding_treatment: values.fundingTreatment,
+    p_payment_date: values.paymentDate || null,
+    p_business_account_key: values.businessAccountKey || null,
+    p_owner_label: values.ownerLabel || null,
+    p_idempotency_key: values.submissionKey,
   });
   if (error || !data) throw error ?? new Error("Expense creation returned no identifier.");
   return data;
@@ -117,12 +122,17 @@ export async function upsertCampaignEntry(client: SupabaseClient, values: Campai
 }
 
 export async function recordAdSpendEntry(client: SupabaseClient, values: AdSpendEntryValues) {
-  const { data, error } = await client.rpc("record_daily_ad_spend", {
+  const { data, error } = await client.rpc("record_funded_ad_spend", {
     p_campaign_id: values.campaignId,
     p_spend_date: values.spendDate,
     p_platform: values.platform,
     p_amount: moneyToDatabaseNumber(parseMoney(values.amount)),
     p_source_reference: optional(values.sourceReference),
+    p_funding_treatment: values.fundingTreatment,
+    p_payment_date: values.paymentDate || null,
+    p_business_account_key: values.businessAccountKey || null,
+    p_owner_label: values.ownerLabel || null,
+    p_idempotency_key: values.submissionKey,
   });
   if (error || !data) throw error ?? new Error("Advertising spend returned no identifier.");
   return data;

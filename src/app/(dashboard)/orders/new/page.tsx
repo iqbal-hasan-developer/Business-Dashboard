@@ -10,7 +10,7 @@ import { requireDashboardUser } from "@/lib/auth/session";
 
 export default async function NewOrderPage() {
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
-  const [products, orders] = await Promise.all([repository.getProducts(), repository.getOrders()]);
+  const [products, orders, settings] = await Promise.all([repository.getProducts(), repository.getOrders(), repository.getBusinessSettings()]);
   const persistenceEnabled = resolveBusinessDataProvider() === "supabase" && ["owner", "admin", "data_entry"].includes(user.role);
-  return <><PageHeading title="Create order" description={persistenceEnabled ? "Save an order and its items atomically through the authenticated database RPC." : "Preview the order workflow in isolated mock mode; saving remains disabled."} actions={<Button variant="outline" size="sm" render={<Link href="/orders" />}><ArrowLeft /> Back to orders</Button>} /><NewOrderForm products={products} existingOrderNumbers={orders.map((order) => order.orderNumber)} initialDate={dhakaBusinessDate()} persistenceEnabled={persistenceEnabled} /></>;
+  return <><PageHeading title="Create order" description={persistenceEnabled ? "Save an order and its items atomically through the authenticated database RPC." : "Preview the order workflow in isolated mock mode; saving remains disabled."} actions={<Button variant="outline" size="sm" render={<Link href="/orders" />}><ArrowLeft /> Back to orders</Button>} /><NewOrderForm products={products} settings={settings} existingOrderNumbers={orders.map((order) => order.orderNumber)} initialDate={dhakaBusinessDate()} persistenceEnabled={persistenceEnabled} /></>;
 }

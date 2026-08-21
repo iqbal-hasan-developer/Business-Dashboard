@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDashboardData, mockExpenses, mockOrders } from "@/data/mock-data";
 import { calculateOrderFinancials } from "@/domain/calculations";
 import { parseMoney } from "@/domain/money";
+import { summarizeExpenseAccounting } from "@/domain/procurement";
 
 function deliveredReconciliation(filters: Parameters<typeof buildDashboardData>[0] = {}) {
   const reference = new Date("2026-07-14T00:00:00Z");
@@ -20,13 +21,17 @@ function deliveredReconciliation(filters: Parameters<typeof buildDashboardData>[
     return true;
   });
   const financials = delivered.map(calculateOrderFinancials);
-  const periodExpenses = mockExpenses
-    .filter((expense) => expense.date >= start && expense.date <= "2026-07-14")
+  const periodExpenseRows = mockExpenses
+    .filter((expense) => expense.date >= start && expense.date <= "2026-07-14");
+  const periodExpenses = summarizeExpenseAccounting(
+    periodExpenseRows.filter((expense) => expense.category !== "Advertising"),
+  ).operatingExpenses;
+  const adSpend = periodExpenseRows.filter((expense) => expense.category === "Advertising")
     .reduce((sum, expense) => sum + expense.amount, 0);
   const netRevenue = financials.reduce((sum, value) => sum + value.netRevenue, 0);
   const cogs = financials.reduce((sum, value) => sum + value.recognizedCogs, 0);
   const contribution = financials.reduce((sum, value) => sum + value.contributionProfit, 0);
-  const netProfit = contribution - periodExpenses;
+  const netProfit = contribution - periodExpenses - adSpend;
   return {
     productRevenue: financials.reduce((sum, value) => sum + value.productRevenue, 0),
     netRevenue,
@@ -55,14 +60,13 @@ describe("dashboard Delivered-only recognition", () => {
   it("reconciles all recognized KPIs to the filtered Delivered records", () => {
     const data = buildDashboardData();
     const expected = deliveredReconciliation();
-    const periodExpenses = mockExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
     expect(data.summary).toMatchObject({
       productRevenue: parseMoney("8920"),
       netRevenue: parseMoney("9390"),
       cogs: parseMoney("4200"),
       grossProfit: parseMoney("5190"),
-      netProfit: parseMoney("3720") * -1,
+      netProfit: expected.netProfit,
       averageOrderValue: parseMoney("1341.43"),
     });
     expect(data.summary.productRevenue).toBe(expected.productRevenue);
@@ -70,7 +74,7 @@ describe("dashboard Delivered-only recognition", () => {
     expect(data.summary.cogs).toBe(expected.cogs);
     expect(data.summary.grossProfit).toBe(expected.netRevenue - expected.cogs);
     expect(data.summary.averageOrderValue).toBe(Math.round(expected.netRevenue / expected.deliveredCount));
-    expect(data.summary.netProfit).toBe(expected.contribution - periodExpenses);
+    expect(data.summary.netProfit).toBe(expected.netProfit);
     expect(data.summary.profitMargin).toBe((data.summary.netProfit ?? 0) / expected.netRevenue);
   });
 

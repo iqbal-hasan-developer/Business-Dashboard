@@ -26,9 +26,10 @@ import {
   type ManualOrderValues,
 } from "@/domain/manual-entry";
 import { formatMoney, parseMoney } from "@/domain/money";
-import { PAYMENT_METHODS, SALES_CHANNELS, type Order, type Product } from "@/domain/types";
+import { courierCostForLocation, moneyInput } from "@/domain/settings";
+import { PAYMENT_METHODS, SALES_CHANNELS, type BusinessSettings, type Order, type Product } from "@/domain/types";
 
-function createDefaultValues(date: string, products: Product[]): ManualOrderValues {
+function createDefaultValues(date: string, products: Product[], settings: BusinessSettings): ManualOrderValues {
   return {
     orderNumber: "",
     externalReference: "",
@@ -38,7 +39,7 @@ function createDefaultValues(date: string, products: Product[]): ManualOrderValu
     customerAddress: "",
     customerNote: "",
     customerLocation: "Inside Dhaka",
-    courier: "Steadfast",
+    courier: settings.defaultCourier,
     channel: "Other",
     campaign: "",
     status: "Pending",
@@ -47,8 +48,8 @@ function createDefaultValues(date: string, products: Product[]): ManualOrderValu
     settlementStatus: "Awaiting",
     discount: "0",
     deliveryCharged: "0",
-    courierCostSnapshot: "0",
-    packagingCostSnapshot: "0",
+    courierCostSnapshot: moneyInput(settings.insideDhakaCourierCost),
+    packagingCostSnapshot: moneyInput(settings.packagingCostPerOrder),
     items: [{
       productId: products[0]?.id ?? "",
       quantity: 1,
@@ -91,14 +92,15 @@ function Section({ number, title, description, children }: {
 
 type SharedOrderFormProps = {
   products: Product[];
+  settings: BusinessSettings;
   existingOrderNumbers: string[];
   persistenceEnabled: boolean;
 };
 
 export function NewOrderForm(props: SharedOrderFormProps & { initialDate: string }) {
   const initialValues = useMemo(
-    () => createDefaultValues(props.initialDate, props.products),
-    [props.initialDate, props.products],
+    () => createDefaultValues(props.initialDate, props.products, props.settings),
+    [props.initialDate, props.products, props.settings],
   );
   return <OrderForm {...props} mode="create" initialValues={initialValues} />;
 }
@@ -116,7 +118,7 @@ export function EditOrderForm(props: SharedOrderFormProps & { order: Order }) {
   />;
 }
 
-function OrderForm({ products, existingOrderNumbers, persistenceEnabled, mode, initialValues, orderId, expectedUpdatedAt, preserveUnknownCourierCost = false, preserveUnknownPackagingCost = false }: SharedOrderFormProps & {
+function OrderForm({ products, settings, existingOrderNumbers, persistenceEnabled, mode, initialValues, orderId, expectedUpdatedAt, preserveUnknownCourierCost = false, preserveUnknownPackagingCost = false }: SharedOrderFormProps & {
   mode: "create" | "edit";
   initialValues: ManualOrderValues;
   orderId?: string;
@@ -185,6 +187,11 @@ function OrderForm({ products, existingOrderNumbers, persistenceEnabled, mode, i
     if (product) form.setValue(`items.${index}.actualUnitSellingPrice`, String(product.sellingPrice / 100), { shouldDirty: true, shouldValidate: true });
   }
 
+  function applyLocation(location: "Inside Dhaka" | "Outside Dhaka") {
+    form.setValue("customerLocation", location, { shouldDirty: true, shouldValidate: true });
+    form.setValue("courierCostSnapshot", moneyInput(courierCostForLocation(settings, location)), { shouldDirty: true, shouldValidate: true });
+  }
+
   function review(validated: ManualOrderValues) {
     if (mode === "create" && existingOrderNumbers.some((orderNumber) => orderNumber.toLowerCase() === validated.orderNumber.toLowerCase())) {
       form.setError("orderNumber", { message: "That order number already exists" });
@@ -240,7 +247,7 @@ function OrderForm({ products, existingOrderNumbers, persistenceEnabled, mode, i
           <Field><FieldLabel htmlFor="customerName">Customer name</FieldLabel><Input id="customerName" {...form.register("customerName")} /><FieldError errors={[form.formState.errors.customerName]} /></Field>
           <Field><FieldLabel htmlFor="customerPhone">Customer phone</FieldLabel><Input id="customerPhone" inputMode="tel" {...form.register("customerPhone")} /><FieldError errors={[form.formState.errors.customerPhone]} /></Field>
           <Field className="sm:col-span-2"><FieldLabel htmlFor="customerAddress">Customer address</FieldLabel><Textarea id="customerAddress" {...form.register("customerAddress")} /><FieldError errors={[form.formState.errors.customerAddress]} /></Field>
-          <Field><FieldLabel htmlFor="customerLocation">Customer location</FieldLabel><Controller control={form.control} name="customerLocation" render={({ field }) => <FormSelect id="customerLocation" value={field.value} onValueChange={field.onChange} options={["Inside Dhaka", "Outside Dhaka"]} placeholder="Choose location" />} /></Field>
+          <Field><FieldLabel htmlFor="customerLocation">Customer location</FieldLabel><Controller control={form.control} name="customerLocation" render={({ field }) => <FormSelect id="customerLocation" value={field.value} onValueChange={(value) => applyLocation(value as "Inside Dhaka" | "Outside Dhaka")} options={["Inside Dhaka", "Outside Dhaka"]} placeholder="Choose location" />} /></Field>
           <Field><FieldLabel htmlFor="courier">Courier</FieldLabel><Input id="courier" {...form.register("courier")} /><FieldError errors={[form.formState.errors.courier]} /></Field>
           <Field><FieldLabel htmlFor="campaign">Campaign name</FieldLabel><Input id="campaign" placeholder="Optional" {...form.register("campaign")} /></Field>
           <Field><FieldLabel htmlFor="customerNote">Customer note</FieldLabel><Input id="customerNote" placeholder="Optional" {...form.register("customerNote")} /></Field>

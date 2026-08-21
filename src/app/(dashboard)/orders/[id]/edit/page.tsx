@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
 export default async function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
-  const [order, products] = await Promise.all([
+  const [order, products, settings] = await Promise.all([
     repository.getOrder(id),
     repository.getProducts(),
+    repository.getBusinessSettings(),
   ]);
   if (!order) notFound();
 
@@ -29,5 +30,5 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
     return <><PageHeading title={`Edit ${order.orderNumber}`} description="Ordinary editing is unavailable for this order." actions={back} /><Alert><AlertTriangle /><AlertTitle>Order locked</AlertTitle><AlertDescription>Delivered, returned, refunded, or financially snapshotted orders require a future controlled correction workflow. No recognized financial snapshot can be rewritten.</AlertDescription></Alert></>;
   }
 
-  return <><PageHeading title={`Edit ${order.orderNumber}`} description={persistenceEnabled ? "Update ordinary order fields and items atomically; statuses remain unchanged." : "Preview the edit workflow in isolated mock mode; saving remains disabled."} actions={back} /><EditOrderForm order={order} products={products} existingOrderNumbers={[order.orderNumber]} persistenceEnabled={persistenceEnabled} /></>;
+  return <><PageHeading title={`Edit ${order.orderNumber}`} description={persistenceEnabled ? "Update ordinary order fields and items atomically; statuses remain unchanged." : "Preview the edit workflow in isolated mock mode; saving remains disabled."} actions={back} /><EditOrderForm order={order} products={products} settings={settings} existingOrderNumbers={[order.orderNumber]} persistenceEnabled={persistenceEnabled} /></>;
 }

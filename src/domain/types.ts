@@ -55,6 +55,17 @@ export interface ProductCategory {
   isActive: boolean;
 }
 
+export interface BusinessSettings {
+  currency: "BDT";
+  timezone: "Asia/Dhaka";
+  defaultCourier: string;
+  insideDhakaCourierCost: Money;
+  outsideDhakaCourierCost: Money;
+  packagingCostPerOrder: Money;
+  taxVatBasisPoints: number;
+  cashAccounts: Array<{ key: string; label: string }>;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -63,6 +74,57 @@ export interface Campaign {
   endsOn: string;
   budget: Money;
   isActive: boolean;
+  updatedAt?: string;
+  resultsCount?: number | null;
+  resultType?: string;
+  impressions?: number | null;
+  reach?: number | null;
+  totalMessagingContacts?: number | null;
+  newMessagingContacts?: number | null;
+  purchases?: number | null;
+  attributionSetting?: string;
+  performanceSourceReference?: string;
+}
+
+export interface MarketingFilters {
+  range?: "lifetime" | "7d" | "30d" | "month" | "custom";
+  start?: string;
+  end?: string;
+  campaign?: string;
+  platform?: string;
+}
+
+export interface AdSpendRecord {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  spendDate: string;
+  platform: string;
+  amount: Money;
+  sourceReference: string;
+  updatedAt: string;
+}
+
+export interface AdSpendAuditRecord {
+  id: string;
+  recordId: string;
+  action: "UPDATE" | "DELETE";
+  reason: string;
+  changedAt: string;
+  oldValues: Record<string, unknown>;
+  newValues: Record<string, unknown>;
+}
+
+export interface MarketingWorkspaceData {
+  campaigns: Campaign[];
+  spend: AdSpendRecord[];
+  audit: AdSpendAuditRecord[];
+  platforms: string[];
+  totalSpend: Money;
+  totalResults: number | null;
+  totalPurchases: number | null;
+  startDate: string | null;
+  endDate: string | null;
 }
 
 export interface OrderItem {
@@ -105,14 +167,44 @@ export interface Order {
   packagingCostSnapshotKnown?: boolean;
 }
 
+export interface CustomerPaymentReceipt {
+  id: string;
+  orderId: string;
+  receivedOn: string;
+  accountKey: string;
+  accountLabel: string;
+  amount: Money;
+  reference: string;
+  isReversed: boolean;
+  createdAt: string;
+}
+
 export interface Expense {
   id: string;
   date: string;
   category: string;
+  categoryKey?: string;
+  accountingClass?: "operating_expense" | "inventory_purchase" | "freight_in" | "unallocated_procurement";
   description: string;
   amount: Money;
+  paymentMethod?: string;
+  campaignId?: string | null;
+  salesChannel?: string;
+  reference?: string;
+  updatedAt?: string;
 }
 
+export interface ExpenseAuditRecord {
+  id: string;
+  recordId: string;
+  action: "UPDATE" | "DELETE";
+  reason: string;
+  changedAt: string;
+  oldValues: Record<string, unknown>;
+  newValues: Record<string, unknown>;
+}
+
+export type SettlementReceiptTreatment = "business_account" | "owner_held_business_funds";
 export type SettlementReceivingMethod = "bkash" | "bank_transfer";
 
 export interface SettlementEligibleOrder {
@@ -131,11 +223,21 @@ export interface SettlementBatchOrder {
   allocatedAmount: Money;
 }
 
+export interface SettlementReceiptAllocation {
+  id: string;
+  ownerLabel: string;
+  amount: Money;
+  isReversed: boolean;
+}
+
 export interface SettlementBatch {
   id: string;
   settlementDate: string;
   courier: "Steadfast";
-  receivingMethod: SettlementReceivingMethod;
+  receiptTreatment: SettlementReceiptTreatment;
+  /** Deprecated compatibility value for historical single-owner batches. */
+  ownerLabel: string;
+  receivingMethod: SettlementReceivingMethod | null;
   receivingAccountLabel: string;
   receivingAccountLast4: string;
   transactionReference: string;
@@ -145,12 +247,226 @@ export interface SettlementBatch {
   netReceived: Money;
   note: string;
   confirmedAt: string;
+  isReversed: boolean;
+  reversedOn: string;
+  reversalReason: string;
+  receiptAllocations: SettlementReceiptAllocation[];
   orders: SettlementBatchOrder[];
 }
 
 export interface CourierSettlementData {
   eligibleOrders: SettlementEligibleOrder[];
   batches: SettlementBatch[];
+}
+
+export type ManualCashTransactionType = "owner_investment" | "owner_withdrawal" | "operating_inflow" | "operating_outflow";
+export type CashTransactionType = ManualCashTransactionType | "owner_money_taken" | "transfer_in" | "transfer_out" | "courier_settlement" | "expense" | "ad_spend" | "procurement_payment" | "customer_payment" | "owner_held_transfer" | "reversal";
+
+export interface CashLedgerEntry {
+  id: string;
+  movementDate: string;
+  transactionType: CashTransactionType;
+  accountKey: string;
+  accountLabel: string;
+  amount: Money;
+  signedAmount: Money;
+  runningBalance: Money;
+  accountRunningBalance: Money;
+  description: string;
+  reference: string;
+  ownerLabel: string;
+  reversalOfId: string | null;
+  correctionOfId: string | null;
+  isReversed: boolean;
+  createdAt: string;
+}
+
+export interface CashAccountBalance {
+  accountKey: string;
+  accountLabel: string;
+  balance: Money;
+}
+
+export interface CashAccountReconciliation extends CashAccountBalance {
+  actualBalance: Money | null;
+  difference: Money | null;
+  observedOn: string | null;
+  observationReason: string;
+  unresolvedCount: number;
+  unresolvedAmount: Money;
+}
+
+export interface HistoricalCashIssue {
+  recordType: "expense" | "procurement" | "ad_spend" | "purchase_batch" | "owner_cash_movement";
+  recordId: string;
+  recordDate: string;
+  description: string;
+  amount: Money;
+  issueType: "missing_funding_treatment" | "suspicious_owner_cash_entry" | "source_without_cash_movement";
+  accountKey: string | null;
+  ownerLabel: string;
+  cashMovementId: string | null;
+}
+
+export interface SourceFundingRecord {
+  fundingId: string;
+  sourceType: "expense" | "ad_spend" | "purchase_batch";
+  sourceId: string;
+  sourceDate: string;
+  description: string;
+  amount: Money;
+  fundingTreatment: "business_account_paid" | "owner_paid_personally" | "owner_held_business_funds" | "unpaid" | "historical_business_paid_account_unknown" | "already_represented";
+  paymentDate: string | null;
+  businessAccountKey: string | null;
+  ownerLabel: string;
+  existingCashMovementId: string | null;
+  generatedCashMovementId: string | null;
+}
+
+export interface OwnerHeldBalance {
+  ownerLabel: string;
+  ledgerDue: Money;
+  actualDue: Money | null;
+  difference: Money | null;
+  observedOn: string | null;
+  observationReason: string;
+}
+
+export interface SteadfastReceivableReconciliation {
+  calculatedReceivable: Money;
+  actualReceivable: Money | null;
+  difference: Money | null;
+  observedOn: string | null;
+  observationReason: string;
+  grossEligibleReceivable: Money;
+  reversedBatchReceivable: Money;
+  currentCalculatedReceivable: Money;
+  currentGrossEligibleReceivable: Money;
+  postObservationReceivable: Money;
+  components: SteadfastReceivableComponent[];
+}
+
+export interface SteadfastReceivableComponent {
+  orderId: string;
+  orderNumber: string;
+  orderDate: string;
+  customerName: string;
+  grossCodReceivable: Money;
+  excludedReversedBatch: boolean;
+  activeCollectibleReceivable: Money;
+  reversedSettlementId: string | null;
+  reversedOn: string | null;
+  reversalReason: string;
+}
+
+export interface OwnerCapitalPosition {
+  ownerLabel: string;
+  cashInvestment: Money;
+  nonCashContribution: Money;
+  historicalInvestment: Money;
+  capitalReturned: Money;
+  currentContributedCapital: Money;
+  dueFromOwner: Money;
+  ownerMoneyTaken: Money;
+  moneyTakenCapitalReturn: Money;
+  moneyTakenExcessDue: Money;
+  cumulativeMoneyReturnedOrDue: Money;
+}
+
+export interface OwnerMoneyTakenEntry {
+  id: string;
+  eventDate: string;
+  ownerLabel: string;
+  eventType: "taken" | "reversal";
+  amount: Money;
+  capitalReturnAmount: Money;
+  excessDueAmount: Money;
+  sourceAccountKey: string;
+  sourceAccountLabel: string;
+  cashMovementId: string | null;
+  capitalReturnId: string | null;
+  ownerHeldEventId: string | null;
+  reversalOfId: string | null;
+  isReversed: boolean;
+  description: string;
+  reference: string;
+  createdAt: string;
+  recordSource: "unified" | "legacy_owner_held" | "legacy_business_account_return";
+  canReverse: boolean;
+}
+
+export interface OwnerPositionPeriod {
+  eventDate: string;
+  ownerLabel: string;
+  ownerMoneyTakenInPeriod: Money;
+  capitalReturnInPeriod: Money;
+  excessDueInPeriod: Money;
+}
+
+export interface SpendingCategorySummary {
+  categoryKey: string;
+  categoryLabel: string;
+  recordedSourceTotal: Money;
+  classifiedPaidSpending: Money;
+  unpaidTotal: Money;
+  unresolvedSourceCount: number;
+  totalSpending: Money | null;
+  independentlyVerifiedSpending: Money;
+  combinedSpending: Money | null;
+  overlapReviewRequired: boolean;
+}
+
+export interface CapitalFundsSummary {
+  ownerCashInvestment: Money;
+  ownerNonCashContribution: Money;
+  totalOwnerInvestmentContribution: Money;
+  ownerWithdrawals: Money;
+  classifiedPaidSpending: Money;
+  totalBusinessSpending: Money | null;
+  unresolvedSourceCount: number;
+  ledgerBusinessCash: Money;
+  actualBusinessCash: Money | null;
+  ledgerDueFromOwners: Money;
+  actualDueFromOwners: Money;
+  calculatedSteadfastReceivable: Money;
+  confirmedSteadfastReceivable: Money | null;
+  totalAvailableReceivableFunds: Money | null;
+  knownInventoryValue: Money;
+  unresolvedReconciliationDifference: Money | null;
+  historicalOwnerInvestment: Money;
+  totalCapitalReturned: Money;
+  currentContributedCapital: Money;
+  procurementSpending: Money | null;
+  supplierFreightSpending: Money | null;
+  advertisingSpending: Money | null;
+  courierFulfilmentSpending: Money | null;
+  operatingSpending: Money | null;
+  confirmedPaidSourceSpending: Money;
+  verifiedCourierFulfilmentSpending: Money;
+  totalBusinessCashSpending: Money | null;
+}
+
+export interface CashWorkspaceData {
+  entries: CashLedgerEntry[];
+  accountBalances: CashAccountBalance[];
+  totalBalance: Money;
+  ownerInvestmentBalance: Money;
+  ownerCashInvestment: Money;
+  ownerWithdrawal: Money;
+  ownerNonCashContribution: Money;
+  postedInflow: Money;
+  postedOutflow: Money;
+  reconciliationDifference: Money | null;
+  accountReconciliation: CashAccountReconciliation[];
+  historicalIssues: HistoricalCashIssue[];
+  activeFundings: SourceFundingRecord[];
+  ownerHeldBalances: OwnerHeldBalance[];
+  ownerCapitalPositions: OwnerCapitalPosition[];
+  ownerMoneyTakenEntries: OwnerMoneyTakenEntry[];
+  ownerPositionPeriod: OwnerPositionPeriod[];
+  spendingCategories: SpendingCategorySummary[];
+  steadfastReceivable: SteadfastReceivableReconciliation;
+  capitalFunds: CapitalFundsSummary;
 }
 
 export interface OrderFinancials {
@@ -184,6 +500,9 @@ export interface DashboardSummary {
   grossProfit: Money | null;
   contributionProfit: Money | null;
   operatingExpenses: Money;
+  inventoryProcurement: Money;
+  freightIn: Money;
+  unallocatedProcurement: Money;
   netProfit: Money | null;
   profitMargin: number | null;
   adSpend: Money;
@@ -209,6 +528,19 @@ export interface DashboardDataQuality {
   deliveredOrdersMissingFinancialSnapshot: number;
   snapshotProductRevenueMismatches: number;
   snapshotCogsMismatches: number;
+  inventoryPurchasesRecordedAsOperatingExpense: number;
+  supplierFreightRecordedAsOperatingExpense: number;
+  deliveredItemsMissingLandedCostSnapshot: number;
+  procurementBatchesMissingQuantity: number;
+  procurementBatchesMissingProduct: number;
+  unallocatedFreightIn: number;
+  invalidLandedCost: number;
+  purchaseBatchAllocationMismatches: number;
+  advertisingDuplicatedInExpenses: number;
+  fulfillmentDuplicatedInExpenses: number;
+  inventoryValuationMismatches: number;
+  unallocatedProcurementRecords: number;
+  procurementRecordsMissingCashMovement: number;
 }
 
 export interface DashboardReportingStatus {
@@ -220,16 +552,16 @@ export interface DashboardReportingStatus {
   summaryMatchesOrderDetails: boolean;
   globalReconciliationMatches: boolean;
   dataQualityAllZero: boolean;
-  topProductsAvailable: boolean;
   sources: {
     financialSummary: "get_dashboard_financial_summary" | "mock";
     orderFinancials: "dashboard_order_financials" | "mock";
+    productFinancials: "get_dashboard_product_financials" | "mock";
     dailyFinancials: "dashboard_daily_financials" | "dashboard_order_financials" | "mock";
     reconciliation: "dashboard_reconciliation" | "mock";
-    dataQuality: "dashboard_data_quality_checks" | "mock";
+    dataQuality: "get_dashboard_data_quality_checks" | "dashboard_data_quality_checks" | "mock";
     cashBalance: "cash_movements" | "mock";
-    codReceivable: "dashboard_order_financials" | "mock";
-    inventoryValue: "products + product_business_data" | "mock";
+    codReceivable: "dashboard_steadfast_settlement_eligible_orders" | "mock";
+    inventoryValue: "get_dashboard_procurement_summary" | "dashboard_procurement_summary" | "mock";
   };
 }
 

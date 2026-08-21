@@ -73,12 +73,12 @@ describe("manual-entry RPC repository", () => {
   it("uses installed expense, campaign, and ad-spend RPCs with exact decimal values", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: "82100000-0000-4000-8000-000000000001", error: null });
     const client = clientWith(rpc);
-    await recordExpenseEntry(client, { expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "15.25", paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "" });
+    await recordExpenseEntry(client, { expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "15.25", paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "business_account_paid", paymentDate: "2026-07-19", businessAccountKey: "cash", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000091" });
     await upsertCampaignEntry(client, { name: "Launch", channel: "Meta", startsOn: "", endsOn: "", budget: "100.50", isActive: true });
-    await recordAdSpendEntry(client, { campaignId: "82100000-0000-4000-8000-000000000001", spendDate: "2026-07-19", platform: "Meta", amount: "20.75", sourceReference: "" });
-    expect(rpc).toHaveBeenNthCalledWith(1, "record_expense", expect.objectContaining({ p_amount: 15.25 }));
+    await recordAdSpendEntry(client, { campaignId: "82100000-0000-4000-8000-000000000001", spendDate: "2026-07-19", platform: "Meta", amount: "20.75", sourceReference: "", fundingTreatment: "owner_paid_personally", paymentDate: "2026-07-19", businessAccountKey: "", ownerLabel: "Nasim", submissionKey: "00000000-0000-4000-8000-000000000092" });
+    expect(rpc).toHaveBeenNthCalledWith(1, "record_funded_expense", expect.objectContaining({ p_amount: 15.25, p_funding_treatment: "business_account_paid" }));
     expect(rpc).toHaveBeenNthCalledWith(2, "upsert_campaign", expect.objectContaining({ p_budget: 100.5 }));
-    expect(rpc).toHaveBeenNthCalledWith(3, "record_daily_ad_spend", expect.objectContaining({ p_amount: 20.75 }));
+    expect(rpc).toHaveBeenNthCalledWith(3, "record_funded_ad_spend", expect.objectContaining({ p_amount: 20.75, p_funding_treatment: "owner_paid_personally" }));
   });
 
   it("contains no direct table write, service-role, inventory, refund, or return path", () => {

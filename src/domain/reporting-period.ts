@@ -12,6 +12,13 @@ export function resolveReportingPeriod(referenceDate: string, range = "14d"): Re
   return { startDate: end.toISOString().slice(0, 10), endDate: referenceDate };
 }
 
+export function lifetimeReportingPeriod(referenceDate: string, dates: readonly string[]): ReportingPeriod {
+  const startDate = dates
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= referenceDate)
+    .reduce((earliest, date) => date < earliest ? date : earliest, referenceDate);
+  return { startDate, endDate: referenceDate };
+}
+
 export function previousReportingPeriod(period: ReportingPeriod): ReportingPeriod {
   const currentStart = new Date(`${period.startDate}T00:00:00Z`);
   const currentEnd = new Date(`${period.endDate}T00:00:00Z`);

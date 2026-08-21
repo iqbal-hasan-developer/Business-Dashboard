@@ -41,7 +41,7 @@ export const mockOrders: Order[] = [
   { ...base, id: "o2", orderNumber: "NNM-20260714-0002", orderDate: "2026-07-14", customerName: "Fahim Ahmed", customerLocation: "Outside Dhaka", channel: "Website", campaign: "July Focus", status: "Pending", settlementStatus: "Awaiting", courierCostSnapshot: parseMoney("120"), deliveryCharged: parseMoney("120"), items: [item("p3", 2)] },
   { ...base, id: "o3", orderNumber: "NNM-20260713-0003", orderDate: "2026-07-13", customerName: "Maliha Rahman", customerLocation: "Inside Dhaka", channel: "WhatsApp", campaign: "July Focus", status: "Confirmed", settlementStatus: "Awaiting", courierCostSnapshot: parseMoney("70"), items: [item("p2", 1), item("p6", 1)] },
   { ...base, id: "o4", orderNumber: "NNM-20260713-0004", externalReference: "STD-882109", orderDate: "2026-07-13", customerName: "Tanvir Hasan", customerLocation: "Outside Dhaka", channel: "Facebook Page", status: "Dispatched", settlementStatus: "Awaiting", courierCostSnapshot: parseMoney("120"), deliveryCharged: parseMoney("120"), items: [item("p4", 1)] },
-  { ...base, id: "o5", orderNumber: "NNM-20260712-0005", orderDate: "2026-07-12", customerName: "Sadia Islam", customerLocation: "Inside Dhaka", channel: "Website", campaign: "Journal Launch", status: "Delivered", paymentMethod: "bKash", paymentStatus: "Paid", settlementStatus: "Settled", courierCostSnapshot: parseMoney("70"), discount: parseMoney("50"), items: [item("p3", 1), item("p5", 2)] },
+  { ...base, id: "o5", updatedAt: "2026-07-12T10:00:00+00:00", hasImmutableFinancialSnapshot: true, orderNumber: "NNM-20260712-0005", orderDate: "2026-07-12", customerName: "Sadia Islam", customerLocation: "Inside Dhaka", channel: "Website", campaign: "Journal Launch", status: "Delivered", paymentMethod: "bKash", paymentStatus: "Paid", settlementStatus: "Not Applicable", courierCostSnapshot: parseMoney("70"), discount: parseMoney("50"), items: [item("p3", 1), item("p5", 2)] },
   { ...base, id: "o6", orderNumber: "NNM-20260711-0006", orderDate: "2026-07-11", customerName: "Rafi Chowdhury", customerLocation: "Outside Dhaka", channel: "Phone", status: "Failed Delivery", settlementStatus: "Not Applicable", courierCostSnapshot: parseMoney("120"), deliveryCharged: parseMoney("120"), items: [item("p1", 1)] },
   { ...base, id: "o7", orderNumber: "NNM-20260710-0007", orderDate: "2026-07-10", customerName: "Afsana Karim", customerLocation: "Inside Dhaka", channel: "Facebook Messenger", campaign: "Planner Week", status: "Delivered", paymentStatus: "Paid", settlementStatus: "Partially Settled", courierCostSnapshot: parseMoney("70"), discount: parseMoney("80"), items: [item("p1", 2)] },
   { ...base, id: "o8", orderNumber: "NNM-20260709-0008", orderDate: "2026-07-09", customerName: "Sabbir Hossain", customerLocation: "Outside Dhaka", channel: "Website", campaign: "Student Bundle", status: "Returned", settlementStatus: "Refund Due", courierCostSnapshot: parseMoney("120"), deliveryCharged: parseMoney("120"), items: [item("p4", 1), item("p6", 1)] },
@@ -54,11 +54,11 @@ export const mockOrders: Order[] = [
 ];
 
 export const mockExpenses: Expense[] = [
-  { id: "e1", date: "2026-07-14", category: "Advertising", description: "Meta Ads — July Focus", amount: parseMoney("3850") },
-  { id: "e2", date: "2026-07-12", category: "Operations", description: "Packing supplies", amount: parseMoney("940") },
-  { id: "e3", date: "2026-07-10", category: "Software", description: "Design tools", amount: parseMoney("1200") },
-  { id: "e4", date: "2026-07-08", category: "Advertising", description: "Creator collaboration", amount: parseMoney("1750") },
-  { id: "e5", date: "2026-07-05", category: "Logistics", description: "Courier adjustment", amount: parseMoney("630") },
+  { id: "00000000-0000-4000-8000-000000000071", date: "2026-07-14", category: "Advertising", categoryKey: "advertising", description: "Legacy Meta Ads entry", amount: parseMoney("3850"), paymentMethod: "Card", campaignId: null, salesChannel: "Meta", reference: "LEGACY-ADS", updatedAt: "2026-08-13T00:00:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000072", date: "2026-07-12", category: "Operations", categoryKey: "operations", description: "Packing supplies", amount: parseMoney("940"), paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "", updatedAt: "2026-08-13T00:00:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000073", date: "2026-07-10", category: "Software & subscriptions", categoryKey: "software", description: "Design tools", amount: parseMoney("1200"), paymentMethod: "Card", campaignId: null, salesChannel: "", reference: "", updatedAt: "2026-08-13T00:00:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000074", date: "2026-07-08", category: "Freight-in / supplier transportation", categoryKey: "freight_in", accountingClass: "freight_in", description: "Stock collection transport", amount: parseMoney("1750"), paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "", updatedAt: "2026-08-13T00:00:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000075", date: "2026-07-05", category: "Inventory purchase", categoryKey: "inventory_purchase", accountingClass: "inventory_purchase", description: "Sample stock purchase", amount: parseMoney("630"), paymentMethod: "Cash", campaignId: null, salesChannel: "", reference: "", updatedAt: "2026-08-13T00:00:00.000Z" },
 ];
 
 export function buildDashboardData(filters: DashboardFilters = {}): DashboardData {
@@ -68,7 +68,9 @@ export function buildDashboardData(filters: DashboardFilters = {}): DashboardDat
     {
       referenceDate: "2026-07-14",
       cashBalance: parseMoney("48250"),
-      comparison: { hasPriorPeriodData: true, totalOrdersChangePercent: 12.5 },
+      comparison: filters.range === "lifetime"
+        ? undefined
+        : { hasPriorPeriodData: true, totalOrdersChangePercent: 12.5 },
     },
   );
 }

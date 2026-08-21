@@ -9,7 +9,7 @@ const routes = [
   { path: "/products", heading: "Products" },
   { path: "/marketing", heading: "Marketing" },
   { path: "/expenses", heading: "Expenses" },
-  { path: "/cash-settlements", heading: "Cash settlements" },
+  { path: "/cash-settlements", heading: "Cash & settlements" },
   { path: "/reports", heading: "Reports" },
   { path: "/data-checks", heading: "Data checks" },
   { path: "/settings", heading: "Settings" },
@@ -22,6 +22,7 @@ for (const route of routes) {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     await page.goto(route.path);
+    await expect(page.getByRole("img", { name: "NexaNotion" }).filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
@@ -65,4 +66,33 @@ test("dashboard recognizes Product Revenue only for Delivered orders", async ({ 
   await page.goto("/dashboard?status=Pending");
   const filteredProductRevenue = page.getByText("Product revenue", { exact: true });
   await expect(filteredProductRevenue.locator("xpath=following-sibling::p")).toHaveText("৳0");
+});
+
+test("dashboard expense chart includes filtered advertising spend", async ({ page }, testInfo) => {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto("/dashboard");
+  const chartHeading = page.getByRole("heading", { name: "Expense & ad spend breakdown" });
+  await expect(chartHeading).toBeVisible();
+  await expect(page.getByText("Product cost", { exact: true })).toBeVisible();
+  await expect(page.getByText("Courier / transportation", { exact: true })).toBeVisible();
+  await expect(page.getByText("Advertising spend", { exact: true })).toBeVisible();
+  const chartPanel = chartHeading.locator("xpath=ancestor::section");
+  const slices = chartPanel.locator("path.recharts-sector");
+  await expect(slices.first()).toBeVisible();
+  const fills = await slices.evaluateAll((paths) => paths.map((path) => path.getAttribute("fill")));
+  expect(new Set(fills).size).toBe(fills.length);
+  const chartSurface = chartPanel.getByRole("application");
+  await chartSurface.focus();
+  await expect(chartSurface).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  await chartHeading.scrollIntoViewIfNeeded();
+  const screenshotPath = `${process.env.TEMP?.replaceAll("\\", "/") ?? "C:/Windows/Temp"}/nexanotion-expense-ad-spend-${testInfo.project.name}.png`;
+  await page.screenshot({ path: screenshotPath, fullPage: false });
 });

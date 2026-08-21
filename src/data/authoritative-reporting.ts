@@ -70,6 +70,8 @@ export const orderFinancialRowSchema = z.object({
   recognized_cogs: nullableDatabaseMoneySchema,
   gross_profit: nullableDatabaseMoneySchema,
   contribution_profit: nullableDatabaseMoneySchema,
+  recognized_courier_cost: nullableDatabaseMoneySchema,
+  recognized_packaging_cost: nullableDatabaseMoneySchema,
 }).strict();
 
 export const dailyFinancialRowSchema = z.object({
@@ -89,6 +91,25 @@ export const dailyFinancialRowSchema = z.object({
   profit_margin: nullableDatabasePercentSchema,
 }).strict();
 
+export const productFinancialRowSchema = z.object({
+  product_id: z.string().uuid(),
+  sku: z.string(),
+  product_name: z.string(),
+  delivered_order_count: databaseCountSchema,
+  delivered_units: databaseCountSchema,
+  returned_units: databaseCountSchema,
+  gross_product_revenue: databaseMoneySchema,
+  allocated_delivery_revenue: databaseMoneySchema,
+  allocated_discount: databaseMoneySchema,
+  allocated_refund: databaseMoneySchema,
+  adjusted_product_net_revenue: databaseMoneySchema,
+  recognized_cogs: nullableDatabaseMoneySchema,
+  gross_profit: nullableDatabaseMoneySchema,
+  allocated_courier_cost: nullableDatabaseMoneySchema,
+  allocated_packaging_cost: nullableDatabaseMoneySchema,
+  contribution_profit: nullableDatabaseMoneySchema,
+}).strict();
+
 export const reconciliationRowSchema = financialSummaryRowSchema;
 
 export const dataQualityRowSchema = z.object({
@@ -100,13 +121,38 @@ export const dataQualityRowSchema = z.object({
   delivered_orders_missing_financial_snapshot: databaseCountSchema,
   snapshot_product_revenue_mismatches: databaseCountSchema,
   snapshot_cogs_mismatches: databaseCountSchema,
+  inventory_purchases_recorded_as_operating_expense: databaseCountSchema,
+  supplier_freight_recorded_as_operating_expense: databaseCountSchema,
+  delivered_items_missing_landed_cost_snapshot: databaseCountSchema,
+  procurement_batches_missing_quantity: databaseCountSchema,
+  procurement_batches_missing_product: databaseCountSchema,
+  unallocated_freight_in: databaseCountSchema,
+  invalid_landed_cost: databaseCountSchema,
+  purchase_batch_allocation_mismatches: databaseCountSchema,
+  advertising_duplicated_in_expenses: databaseCountSchema,
+  fulfillment_duplicated_in_expenses: databaseCountSchema,
+  inventory_valuation_mismatches: databaseCountSchema,
+  unallocated_procurement_records: databaseCountSchema,
+  procurement_records_missing_cash_movement: databaseCountSchema,
+}).strict();
+
+export const procurementSummaryRowSchema = z.object({
+  inventory_purchase_total: databaseMoneySchema,
+  freight_in_total: databaseMoneySchema,
+  allocated_procurement_total: databaseMoneySchema,
+  unallocated_procurement_total: databaseMoneySchema,
+  known_inventory_value: databaseMoneySchema,
+  unallocated_record_count: databaseCountSchema,
+  missing_cash_movement_count: databaseCountSchema,
 }).strict();
 
 export type FinancialSummaryRow = z.output<typeof financialSummaryRowSchema>;
 export type OrderFinancialRow = z.output<typeof orderFinancialRowSchema>;
 export type DailyFinancialRow = z.output<typeof dailyFinancialRowSchema>;
+export type ProductFinancialRow = z.output<typeof productFinancialRowSchema>;
 export type ReconciliationRow = z.output<typeof reconciliationRowSchema>;
 export type DataQualityRow = z.output<typeof dataQualityRowSchema>;
+export type ProcurementSummaryRow = z.output<typeof procurementSummaryRowSchema>;
 
 export function mapDataQuality(row: DataQualityRow): DashboardDataQuality {
   return {
@@ -118,6 +164,19 @@ export function mapDataQuality(row: DataQualityRow): DashboardDataQuality {
     deliveredOrdersMissingFinancialSnapshot: row.delivered_orders_missing_financial_snapshot,
     snapshotProductRevenueMismatches: row.snapshot_product_revenue_mismatches,
     snapshotCogsMismatches: row.snapshot_cogs_mismatches,
+    inventoryPurchasesRecordedAsOperatingExpense: row.inventory_purchases_recorded_as_operating_expense,
+    supplierFreightRecordedAsOperatingExpense: row.supplier_freight_recorded_as_operating_expense,
+    deliveredItemsMissingLandedCostSnapshot: row.delivered_items_missing_landed_cost_snapshot,
+    procurementBatchesMissingQuantity: row.procurement_batches_missing_quantity,
+    procurementBatchesMissingProduct: row.procurement_batches_missing_product,
+    unallocatedFreightIn: row.unallocated_freight_in,
+    invalidLandedCost: row.invalid_landed_cost,
+    purchaseBatchAllocationMismatches: row.purchase_batch_allocation_mismatches,
+    advertisingDuplicatedInExpenses: row.advertising_duplicated_in_expenses,
+    fulfillmentDuplicatedInExpenses: row.fulfillment_duplicated_in_expenses,
+    inventoryValuationMismatches: row.inventory_valuation_mismatches,
+    unallocatedProcurementRecords: row.unallocated_procurement_records,
+    procurementRecordsMissingCashMovement: row.procurement_records_missing_cash_movement,
   };
 }
 
@@ -167,6 +226,15 @@ export function summarizeOrderFinancialRows(
     net_profit: netProfit,
     profit_margin: netProfit === null ? null : roundedRatio(netProfit, netRevenue),
   };
+}
+
+export function selectCurrentUnsettledCodRows(
+  rows: OrderFinancialRow[],
+  settlementEligibleOrderIds: ReadonlySet<string>,
+): OrderFinancialRow[] {
+  return rows.filter((row) =>
+    row.payment_method.toLowerCase() === "cod"
+      && settlementEligibleOrderIds.has(row.order_id));
 }
 
 export function financialSummariesMatch(left: FinancialSummaryRow, right: FinancialSummaryRow): boolean {

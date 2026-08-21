@@ -1,0 +1,1 @@
+order_number,order_date,customer_name,customer_location,courier,sales_channel,order_status,payment_method,payment_status,settlement_status,discount_bdt,delivery_charged_bdt,refund_bdt,courier_cost_bdt,packaging_cost_bdt,sku,product_name,quantity,list_price_bdt,buying_cost_bdt,actual_unit_selling_price_bdt
