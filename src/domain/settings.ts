@@ -35,8 +35,8 @@ export const OWNER_APPROVED_BUSINESS_SETTINGS: BusinessSettings = {
   timezone: "Asia/Dhaka",
   defaultCourier: "Steadfast",
   insideDhakaCourierCost: 6_500,
-  outsideDhakaCourierCost: 11_500,
-  packagingCostPerOrder: 200,
+  outsideDhakaCourierCost: 13_500,
+  packagingCostPerOrder: 800,
   taxVatBasisPoints: 0,
   cashAccounts: [
     { key: "cash", label: "Cash" },

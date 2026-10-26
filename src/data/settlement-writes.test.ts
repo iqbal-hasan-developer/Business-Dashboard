@@ -7,10 +7,10 @@ describe("settlement RPC repository", () => {
     const rpc = vi.fn().mockResolvedValue({ data: "82600000-0000-4000-8000-000000000001", error: null });
     const client = { rpc } as unknown as Parameters<typeof recordSteadfastSettlement>[0];
     const eligible = [{ orderId: "82400000-0000-4000-8000-000000000001", orderNumber: "NN-1", orderDate: "2026-07-22", customerName: "Customer", expectedUpdatedAt: "2026-07-22T10:00:00+00:00", grossCodReceivable: parseMoney("580") }];
-    const values = { settlementDate: "2026-07-22", receiptTreatment: "business_account" as const, receivingMethod: "bkash" as const, ownerAllocations: [], grossCodAmount: "580", deductions: "30", netReceived: "550", courierReference: "ST-1", receivingAccountLabel: "", receivingAccountLast4: "1234", transactionReference: "TX-1", note: "", selectedOrderIds: [eligible[0].orderId], idempotencyKey: "82500000-0000-4000-8000-000000000001" };
-    await expect(recordSteadfastSettlement(client, values, eligible)).resolves.toBe("82600000-0000-4000-8000-000000000001");
+    const values = { settlementDate: "2026-07-22", receiptTreatment: "business_account" as const, receivingMethod: "bkash" as const, ownerAllocations: [], grossCodAmount: "580", deductions: "30", netReceived: "550", courierReference: "ST-1", receivingAccountLabel: "", receivingAccountLast4: "1234", transactionReference: "TX-1", note: "", selectedOrderIds: [eligible[0].orderId], selectedAdjustmentIds: [], idempotencyKey: "82500000-0000-4000-8000-000000000001" };
+    await expect(recordSteadfastSettlement(client, values, eligible, [])).resolves.toBe("82600000-0000-4000-8000-000000000001");
     expect(rpc).toHaveBeenCalledOnce();
-    expect(rpc).toHaveBeenCalledWith("record_steadfast_cod_settlement_v3", expect.objectContaining({ p_receipt_treatment: "business_account", p_receiving_method: "bkash", p_owner_allocations: [], p_net_received: 550 }));
+    expect(rpc).toHaveBeenCalledWith("record_steadfast_cod_settlement_v4", expect.objectContaining({ p_receipt_treatment: "business_account", p_receiving_method: "bkash", p_owner_allocations: [], p_rejected_adjustments: [], p_net_received: 550 }));
   });
 
   it("uses the owner-only append-only reversal RPC", async () => {

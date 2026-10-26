@@ -49,7 +49,7 @@ describe("development Supabase connection contracts", () => {
       "record_owner_held_balance_observation",
       "record_owner_held_fund_transfer",
       "record_owner_money_taken",
-      "record_steadfast_cod_settlement_v3",
+      "record_steadfast_cod_settlement_v4",
       "record_steadfast_receivable_observation",
       "reverse_dashboard_cash_movement",
       "reverse_financial_source_funding",

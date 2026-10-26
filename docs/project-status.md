@@ -1,6 +1,6 @@
 # Project status and launch tracker
 
-**Updated:** 17 August 2026
+**Updated:** 8 September 2026
 **Target:** private NexaNotion owner dashboard MVP
 **Advanced upgrades:** deferred until after launch
 
@@ -34,8 +34,8 @@ and the existing NexaNotion website remain untouched.
   the correcting cash movement, and safely restores settlement eligibility.
 - Owner-only Orders, Products, and financial-report CSV downloads with bounded
   reads, exact BDT decimals, and spreadsheet-formula protection.
-- Owner settings for Steadfast, BDT 65 inside-Dhaka courier cost, BDT 115
-  outside-Dhaka courier cost, BDT 2 packaging, zero tax/VAT, and the approved
+- Owner settings for Steadfast, BDT 65 inside-Dhaka courier cost, BDT 135
+  outside-Dhaka courier cost, BDT 8 packaging, zero tax/VAT, and the approved
   Cash, bKash, Nagad, Bank, and Steadfast account labels.
 - Automatic exact-poisha courier and packaging snapshots on new orders, including
   the Inside/Outside Dhaka courier-cost switch without rewriting prior orders.

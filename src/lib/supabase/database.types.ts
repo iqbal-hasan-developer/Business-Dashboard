@@ -420,6 +420,33 @@ export type Database = {
         created_by: string | null;
         created_at: string;
       }>;
+      rejected_cod_courier_adjustments: Table<{
+        id: string;
+        order_id: string;
+        evidence_date: string;
+        courier: string;
+        tracking_code: string;
+        courier_outcome: string;
+        rejection_reason: string;
+        customer_delivery_charge_recovery: number;
+        courier_charge: number;
+        expected_net_adjustment: number;
+        evidence_status: string;
+        idempotency_key: string;
+        request_fingerprint: string;
+        created_by: string;
+        created_at: string;
+      }>;
+      rejected_cod_adjustment_settlement_allocations: Table<{
+        id: string;
+        adjustment_id: string;
+        settlement_id: string;
+        customer_delivery_charge_recovery: number;
+        courier_charge: number;
+        net_adjustment: number;
+        created_by: string;
+        created_at: string;
+      }>;
       settlement_reversals: Table<{
         id: string;
         settlement_id: string;
@@ -479,6 +506,75 @@ export type Database = {
       }>;
     };
     Views: {
+      dashboard_rejected_cod_adjustments: {
+        Row: {
+          id: string;
+          order_id: string;
+          order_number: string;
+          evidence_date: string;
+          courier: string;
+          tracking_code: string;
+          courier_outcome: string;
+          rejection_reason: string;
+          customer_delivery_charge_recovery: number;
+          courier_charge: number;
+          expected_net_adjustment: number;
+          evidence_status: string;
+          settlement_confirmation_status: string;
+          settlement_id: string | null;
+          settlement_date: string | null;
+          settlement_reference: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      dashboard_rejected_cod_adjustment_financials: {
+        Row: {
+          event_date: string;
+          order_id: string;
+          order_number: string;
+          sales_channel: string;
+          campaign_id: string | null;
+          delivery_charge_recovery: number;
+          courier_cost: number;
+          net_adjustment: number;
+          settlement_id: string;
+          recognized_at: string;
+        };
+        Relationships: [];
+      };
+      dashboard_steadfast_settlement_eligible_rejected_adjustments: {
+        Row: {
+          adjustment_id: string;
+          order_id: string;
+          order_number: string;
+          order_date: string;
+          customer_name: string;
+          sales_channel: string;
+          campaign_id: string | null;
+          tracking_code: string;
+          courier_outcome: string;
+          expected_created_at: string;
+          gross_cod_recovery: number;
+          courier_charge: number;
+          expected_net_adjustment: number;
+        };
+        Relationships: [];
+      };
+      dashboard_steadfast_settlement_batch_rejected_adjustments: {
+        Row: {
+          settlement_id: string;
+          adjustment_id: string;
+          order_id: string;
+          order_number: string;
+          customer_name: string;
+          tracking_code: string;
+          customer_delivery_charge_recovery: number;
+          courier_charge: number;
+          net_adjustment: number;
+        };
+        Relationships: [];
+      };
       dashboard_cash_ledger: {
         Row: {
           id: string;
@@ -1290,6 +1386,39 @@ export type Database = {
           p_deductions: number;
           p_net_received: number;
           p_orders: Json;
+          p_idempotency_key: string;
+          p_courier_reference?: string | null;
+          p_receiving_account_label?: string | null;
+          p_receiving_account_last4?: string | null;
+          p_receiving_transaction_reference?: string | null;
+          p_note?: string | null;
+        };
+        Returns: string;
+      };
+      record_rejected_cod_courier_adjustment: {
+        Args: {
+          p_order_id: string;
+          p_evidence_date: string;
+          p_tracking_code: string;
+          p_courier_outcome: string;
+          p_rejection_reason: string;
+          p_customer_delivery_charge_recovery: number;
+          p_courier_charge: number;
+          p_idempotency_key: string;
+        };
+        Returns: string;
+      };
+      record_steadfast_cod_settlement_v4: {
+        Args: {
+          p_settlement_date: string;
+          p_receipt_treatment: "business_account" | "owner_held_business_funds";
+          p_receiving_method: "bkash" | "bank_transfer" | null;
+          p_owner_allocations: Json;
+          p_gross_cod_amount: number;
+          p_deductions: number;
+          p_net_received: number;
+          p_orders: Json;
+          p_rejected_adjustments: Json;
           p_idempotency_key: string;
           p_courier_reference?: string | null;
           p_receiving_account_label?: string | null;

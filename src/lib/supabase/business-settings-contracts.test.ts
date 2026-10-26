@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(join(process.cwd(), "supabase", "migrations", "202608080000_business_settings_defaults.sql"), "utf8");
+const updatedDefaultsMigration = readFileSync(join(process.cwd(), "supabase", "migrations", "20260907183721_update_courier_and_packaging_defaults.sql"), "utf8");
 
 describe("business settings database contract", () => {
   it("stores owner-approved money defaults as integer poisha", () => {
@@ -17,6 +18,13 @@ describe("business settings database contract", () => {
   it("seeds the confirmed cash account labels without overwriting existing rows", () => {
     for (const label of ["Cash", "bKash", "Nagad", "Bank", "Steadfast"]) expect(migration).toContain(`'${label}'`);
     expect(migration).toContain("on conflict (lookup_type, lookup_key) do nothing");
+  });
+
+  it("updates the current Outside Dhaka and packaging defaults without rewriting snapshots", () => {
+    expect(updatedDefaultsMigration).toContain("to_jsonb(13500::bigint)");
+    expect(updatedDefaultsMigration).toContain("to_jsonb(800::bigint)");
+    expect(updatedDefaultsMigration).not.toMatch(/update\s+public\.(orders|order_financial|products|cash_movements)/i);
+    expect(updatedDefaultsMigration).not.toMatch(/double precision|\breal\b/);
   });
 
   it("updates all financial defaults atomically through an owner-only RPC", () => {

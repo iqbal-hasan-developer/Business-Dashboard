@@ -9,7 +9,7 @@ OCR, notification, forecasting, and AI features are intentionally deferred.
 2. Review **Data checks** before entering or changing financial records.
 3. Enter new Messenger, WhatsApp, phone, or offline orders from **Orders → New order**.
 4. Confirm the customer location before saving. The current defaults are BDT 65
-   Inside Dhaka, BDT 115 Outside Dhaka, and BDT 2 packaging.
+   Inside Dhaka, BDT 135 Outside Dhaka, and BDT 8 packaging.
 5. Update operational order status separately from payment status. Settlement
    status changes only when settlement evidence is recorded.
 6. Record campaigns, daily advertising spend, and operating expenses in their

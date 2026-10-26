@@ -13,12 +13,14 @@ import {
   productFinancialRowSchema,
   procurementSummaryRowSchema,
   reconciliationRowSchema,
+  rejectedCodAdjustmentFinancialRowSchema,
   selectCurrentUnsettledCodRows,
   summarizeOrderFinancialRows,
   type DailyFinancialRow,
   type FinancialSummaryRow,
   type OrderFinancialRow,
   type ProductFinancialRow,
+  type RejectedCodAdjustmentFinancialRow,
 } from "@/data/authoritative-reporting";
 import type { BusinessRepository } from "@/data/repository";
 import { buildExpenseAndAdSpendBreakdown } from "@/domain/dashboard";
@@ -34,7 +36,7 @@ import {
   type ReportingPeriod,
 } from "@/domain/reporting-period";
 import type {
-  BusinessSettings, Campaign, CashWorkspaceData, CourierSettlementData, CustomerPaymentReceipt, DashboardData, DashboardFilters, Expense, ExpenseAuditRecord, MarketingFilters, MarketingWorkspaceData, Money, Order, OrderStatus, PaymentMethod,
+  BusinessSettings, Campaign, CashWorkspaceData, CourierSettlementData, CustomerPaymentReceipt, DashboardData, DashboardFilters, Expense, ExpenseAuditRecord, MarketingFilters, MarketingWorkspaceData, Money, Order, OrderStatus, PaymentMethod, RejectedCodAdjustment,
   OwnerMoneyTakenEntry, OwnerPositionPeriod, PaymentStatus, Product, ProductCategory, SalesChannel, SettlementStatus,
 } from "@/domain/types";
 import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES, SALES_CHANNELS, SETTLEMENT_STATUSES } from "@/domain/types";
@@ -142,10 +144,14 @@ export function summarizeRecognizedCostRows(
   rows: Array<Pick<OrderFinancialRow, "recognized_courier_cost" | "recognized_packaging_cost">>,
   productCost: Money | null,
   accountingApplies: boolean,
+  rejectedAdjustments: Array<Pick<RejectedCodAdjustmentFinancialRow, "courier_cost">> = [],
 ) {
   if (!accountingApplies) return { productCost: null, transportation: null, packaging: null };
   const transportation = rows.every((row) => row.recognized_courier_cost !== null)
-    ? sumMoney(rows.map((row) => row.recognized_courier_cost ?? 0))
+    ? sumMoney([
+      ...rows.map((row) => row.recognized_courier_cost ?? 0),
+      ...rejectedAdjustments.map((row) => row.courier_cost),
+    ])
     : null;
   const packaging = rows.every((row) => row.recognized_packaging_cost !== null)
     ? sumMoney(rows.map((row) => row.recognized_packaging_cost ?? 0))
@@ -346,11 +352,14 @@ function buildDailySeries(
   recognizedRows: OrderFinancialRow[],
   adRows: AdSpendLedgerRow[],
   expenseRows: ExpenseLedgerRow[],
+  rejectedAdjustments: RejectedCodAdjustmentFinancialRow[],
   useDailyView: boolean,
 ) {
   const dailyByDate = new Map(dailyRows.map((row) => [row.business_date, row]));
   const ordersByDate = new Map<string, OrderFinancialRow[]>();
   recognizedRows.forEach((row) => ordersByDate.set(row.order_date, [...(ordersByDate.get(row.order_date) ?? []), row]));
+  const adjustmentsByDate = new Map<string, RejectedCodAdjustmentFinancialRow[]>();
+  rejectedAdjustments.forEach((row) => adjustmentsByDate.set(row.event_date, [...(adjustmentsByDate.get(row.event_date) ?? []), row]));
   const adByDate = new Map<string, Money>();
   adRows.forEach((row) => adByDate.set(row.date, sumMoney([adByDate.get(row.date) ?? 0, row.amount])));
   const expensesByDate = new Map<string, Money>();
@@ -369,11 +378,12 @@ function buildDailySeries(
       };
     }
     const rows = ordersByDate.get(iso) ?? [];
+    const adjustments = adjustmentsByDate.get(iso) ?? [];
     const contributionComplete = rows.every((row) => row.contribution_profit !== null);
     return {
       date: label,
-      revenue: sumMoney(rows.map((row) => row.net_revenue)),
-      profit: contributionComplete ? sumMoney(rows.map((row) => row.contribution_profit ?? 0)) : null,
+      revenue: sumMoney([...rows.map((row) => row.net_revenue), ...adjustments.map((row) => row.delivery_charge_recovery)]),
+      profit: contributionComplete ? sumMoney([...rows.map((row) => row.contribution_profit ?? 0), ...adjustments.map((row) => row.net_adjustment)]) : null,
       adSpend: adByDate.get(iso) ?? 0,
       expenses: expensesByDate.get(iso) ?? 0,
     };
@@ -646,6 +656,7 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       dataQualityRow,
       settlementEligibleOrderIds,
       procurementSummary,
+      rejectedAdjustmentRows,
     ] = await Promise.all([
       campaignMissing ? EMPTY_FINANCIAL_SUMMARY : this.getFinancialSummary(period, channel, selectedCampaign?.id ?? null),
       this.getFinancialSummary(null, null, null),
@@ -662,6 +673,7 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       this.getDataQuality(),
       this.getSettlementEligibleOrderIds(),
       this.getProcurementSummary(),
+      campaignMissing ? [] : this.getRejectedCodAdjustmentFinancialRows(period, channel, selectedCampaign?.id ?? null),
     ]);
 
     const dataQuality = mapDataQuality(dataQualityRow);
@@ -674,17 +686,18 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     const pendingOrders = (["Pending", "Confirmed", "Dispatched"] as const)
       .reduce((count, status) => count + (statusCounts.get(status) ?? 0), 0);
     const recentOrders = await this.mapRecentOrders(operationalRows.slice(0, 6));
-    const filteredDetailSummary = summarizeOrderFinancialRows(recognizedRows, summary.ad_spend, summary.expenses);
+    const filteredDetailSummary = summarizeOrderFinancialRows(recognizedRows, summary.ad_spend, summary.expenses, rejectedAdjustmentRows);
     const scope = financialState(summary, filters.status);
     const accountingApplies = scope.state !== "not-applicable";
     const chartPeriod = period ?? lifetimeReportingPeriod(referenceDate, [
       ...dailyRows.map((row) => row.business_date),
       ...recognizedRows.map((row) => row.order_date),
+      ...rejectedAdjustmentRows.map((row) => row.event_date),
       ...operationalRows.map((row) => row.order_date ?? row.created_at?.slice(0, 10) ?? ""),
       ...expenses.map((row) => row.date),
       ...adSpend.map((row) => row.date),
     ]);
-    const daily = buildDailySeries(chartPeriod, filters.status, dailyRows, recognizedRows, adSpend, expenses, useDailyView);
+    const daily = buildDailySeries(chartPeriod, filters.status, dailyRows, recognizedRows, adSpend, expenses, rejectedAdjustmentRows, useDailyView);
     const lowStock = products.filter((product) => product.stock <= product.reorderLevel);
     const unsettledCod = selectCurrentUnsettledCodRows(
       recognizedRows,
@@ -730,7 +743,7 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       expenseBreakdown: buildExpenseAndAdSpendBreakdown(
         expenses,
         adSpend,
-        summarizeRecognizedCostRows(recognizedRows, summary.cogs, accountingApplies),
+        summarizeRecognizedCostRows(recognizedRows, summary.cogs, accountingApplies, rejectedAdjustmentRows),
       ),
       recentOrders,
       warnings: [
@@ -844,6 +857,23 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     return data.map((row) => parseStrict(orderFinancialRowSchema, row, "order financials view"));
   }
 
+  private async getRejectedCodAdjustmentFinancialRows(
+    period: ReportingPeriod | null,
+    channel: string | null,
+    campaignId: string | null,
+  ) {
+    let query = this.supabase.from("dashboard_rejected_cod_adjustment_financials")
+      .select("event_date,order_id,order_number,sales_channel,campaign_id,delivery_charge_recovery,courier_cost,net_adjustment,settlement_id,recognized_at", { count: "exact" });
+    if (period) query = query.gte("event_date", period.startDate).lte("event_date", period.endDate);
+    query = query.order("event_date", { ascending: true });
+    if (channel) query = query.ilike("sales_channel", channel);
+    if (campaignId) query = query.eq("campaign_id", campaignId);
+    const { data, error, count } = await query.limit(MAX_REPORTING_ROWS);
+    if (error || !data) throw new Error("Unable to load confirmed rejected COD adjustments.");
+    assertCompleteResult(count, data.length, MAX_REPORTING_ROWS, "Rejected COD adjustment reporting");
+    return data.map((row) => parseStrict(rejectedCodAdjustmentFinancialRowSchema, row, "rejected COD adjustment financials view"));
+  }
+
   private async getDailyFinancialRows(period: ReportingPeriod | null) {
     let query = this.supabase.from("dashboard_daily_financials")
       .select(DAILY_FINANCIAL_COLUMNS, { count: "exact" });
@@ -901,9 +931,12 @@ export class SupabaseBusinessRepository implements BusinessRepository {
   }
 
   async getCourierSettlementData(): Promise<CourierSettlementData> {
-    const [eligibleResult, batchesResult, ordersResult, receiptAllocationsResult] = await Promise.all([
+    const [eligibleResult, rejectedEligibleResult, batchesResult, ordersResult, rejectedBatchResult, receiptAllocationsResult] = await Promise.all([
       this.supabase.from("dashboard_steadfast_settlement_eligible_orders")
         .select("order_id,order_number,order_date,customer_name,updated_at,gross_cod_receivable", { count: "exact" })
+        .order("order_date", { ascending: true }).limit(MAX_LIST_ROWS),
+      this.supabase.from("dashboard_steadfast_settlement_eligible_rejected_adjustments")
+        .select("adjustment_id,order_id,order_number,order_date,customer_name,tracking_code,expected_created_at,gross_cod_recovery,courier_charge,expected_net_adjustment", { count: "exact" })
         .order("order_date", { ascending: true }).limit(MAX_LIST_ROWS),
       this.supabase.from("dashboard_steadfast_settlement_batches")
         .select("id,settlement_date,courier,receiving_method,receiving_account_label,receiving_account_last4,receiving_transaction_reference,settlement_reference,gross_cod_amount,deductions,net_received,notes,confirmed_at,order_count,is_reversed,reversed_on,reversal_reason,receipt_treatment,owner_label", { count: "exact" })
@@ -911,26 +944,41 @@ export class SupabaseBusinessRepository implements BusinessRepository {
       this.supabase.from("dashboard_steadfast_settlement_batch_orders")
         .select("settlement_id,order_id,order_number,customer_name,allocated_amount", { count: "exact" })
         .limit(MAX_LIST_ROWS),
+      this.supabase.from("dashboard_steadfast_settlement_batch_rejected_adjustments")
+        .select("settlement_id,adjustment_id,order_id,order_number,customer_name,tracking_code,customer_delivery_charge_recovery,courier_charge,net_adjustment", { count: "exact" })
+        .limit(MAX_LIST_ROWS),
       this.supabase.from("dashboard_steadfast_settlement_receipt_allocations")
         .select("id,settlement_id,owner_label,amount,is_reversed", { count: "exact" })
         .limit(MAX_LIST_ROWS),
     ]);
-    if (eligibleResult.error || batchesResult.error || ordersResult.error || receiptAllocationsResult.error || !eligibleResult.data || !batchesResult.data || !ordersResult.data || !receiptAllocationsResult.data) {
+    if (eligibleResult.error || rejectedEligibleResult.error || batchesResult.error || ordersResult.error || rejectedBatchResult.error || receiptAllocationsResult.error || !eligibleResult.data || !rejectedEligibleResult.data || !batchesResult.data || !ordersResult.data || !rejectedBatchResult.data || !receiptAllocationsResult.data) {
       throw new Error("Unable to load courier settlement records.");
     }
     assertCompleteResult(eligibleResult.count, eligibleResult.data.length, MAX_LIST_ROWS, "Eligible settlement orders");
+    assertCompleteResult(rejectedEligibleResult.count, rejectedEligibleResult.data.length, MAX_LIST_ROWS, "Eligible rejected COD adjustments");
     assertCompleteResult(batchesResult.count, batchesResult.data.length, MAX_LIST_ROWS, "Settlement history");
     assertCompleteResult(ordersResult.count, ordersResult.data.length, MAX_LIST_ROWS, "Settlement allocations");
+    assertCompleteResult(rejectedBatchResult.count, rejectedBatchResult.data.length, MAX_LIST_ROWS, "Rejected COD settlement allocations");
     assertCompleteResult(receiptAllocationsResult.count, receiptAllocationsResult.data.length, MAX_LIST_ROWS, "Settlement receipt allocations");
     const ordersByBatch = new Map<string, typeof ordersResult.data>();
     ordersResult.data.forEach((row) => ordersByBatch.set(row.settlement_id, [...(ordersByBatch.get(row.settlement_id) ?? []), row]));
     const receiptsByBatch = new Map<string, typeof receiptAllocationsResult.data>();
     receiptAllocationsResult.data.forEach((row) => receiptsByBatch.set(row.settlement_id, [...(receiptsByBatch.get(row.settlement_id) ?? []), row]));
+    const rejectedByBatch = new Map<string, typeof rejectedBatchResult.data>();
+    rejectedBatchResult.data.forEach((row) => rejectedByBatch.set(row.settlement_id, [...(rejectedByBatch.get(row.settlement_id) ?? []), row]));
     return {
       eligibleOrders: eligibleResult.data.map((row) => ({
         orderId: row.order_id, orderNumber: row.order_number, orderDate: row.order_date,
         customerName: row.customer_name, expectedUpdatedAt: row.updated_at,
         grossCodReceivable: databaseNumericToMoney(row.gross_cod_receivable),
+      })),
+      eligibleRejectedAdjustments: rejectedEligibleResult.data.map((row) => ({
+        adjustmentId: row.adjustment_id, orderId: row.order_id, orderNumber: row.order_number,
+        orderDate: row.order_date, customerName: row.customer_name, trackingCode: row.tracking_code,
+        expectedCreatedAt: row.expected_created_at,
+        grossCodRecovery: databaseNumericToMoney(row.gross_cod_recovery),
+        courierCharge: databaseNumericToMoney(row.courier_charge),
+        expectedNetAdjustment: databaseNumericToMoney(row.expected_net_adjustment),
       })),
       batches: batchesResult.data.map((row) => ({
         id: row.id, settlementDate: row.settlement_date, courier: "Steadfast",
@@ -943,6 +991,14 @@ export class SupabaseBusinessRepository implements BusinessRepository {
         isReversed: row.is_reversed, reversedOn: row.reversed_on ?? "", reversalReason: row.reversal_reason ?? "",
         receiptAllocations: (receiptsByBatch.get(row.id) ?? []).map((allocation) => ({ id: allocation.id, ownerLabel: allocation.owner_label, amount: databaseNumericToMoney(allocation.amount), isReversed: allocation.is_reversed })),
         orders: (ordersByBatch.get(row.id) ?? []).map((order) => ({ orderId: order.order_id, orderNumber: order.order_number, customerName: order.customer_name, allocatedAmount: databaseNumericToMoney(order.allocated_amount) })),
+        rejectedAdjustments: (rejectedByBatch.get(row.id) ?? []).map((adjustment) => ({
+          adjustmentId: adjustment.adjustment_id, orderId: adjustment.order_id,
+          orderNumber: adjustment.order_number, customerName: adjustment.customer_name,
+          trackingCode: adjustment.tracking_code,
+          grossCodRecovery: databaseNumericToMoney(adjustment.customer_delivery_charge_recovery),
+          courierCharge: databaseNumericToMoney(adjustment.courier_charge),
+          netAdjustment: databaseNumericToMoney(adjustment.net_adjustment),
+        })),
       })),
     };
   }
@@ -1082,6 +1138,34 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     if (itemsResult.error || !itemsResult.data) throw new Error("Unable to load order items.");
     if (snapshotResult.error) throw new Error("Unable to verify the order edit lock.");
     return mapOrder(order, itemsResult.data, snapshotResult.data !== null);
+  }
+
+  async getRejectedCodAdjustment(orderId: string): Promise<RejectedCodAdjustment | null> {
+    const { data, error } = await this.supabase.from("dashboard_rejected_cod_adjustments")
+      .select("id,order_id,order_number,evidence_date,courier,tracking_code,courier_outcome,rejection_reason,customer_delivery_charge_recovery,courier_charge,expected_net_adjustment,evidence_status,settlement_confirmation_status,settlement_id,settlement_date,settlement_reference,created_at")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (error) throw new Error("Unable to load rejected COD adjustment evidence.");
+    if (!data) return null;
+    return {
+      id: data.id,
+      orderId: data.order_id,
+      orderNumber: data.order_number,
+      evidenceDate: data.evidence_date,
+      courier: "Steadfast",
+      trackingCode: data.tracking_code,
+      courierOutcome: "Partial Delivered",
+      rejectionReason: "Customer rejected",
+      customerDeliveryChargeRecovery: toMoney(data.customer_delivery_charge_recovery),
+      courierCharge: toMoney(data.courier_charge),
+      expectedNetAdjustment: toMoney(data.expected_net_adjustment),
+      evidenceStatus: "provisional",
+      settlementConfirmationStatus: data.settlement_confirmation_status as "Awaiting confirmation" | "Confirmed",
+      settlementId: data.settlement_id,
+      settlementDate: data.settlement_date,
+      settlementReference: data.settlement_reference,
+      createdAt: data.created_at,
+    };
   }
 
   async getCustomerPaymentReceipt(orderId: string): Promise<CustomerPaymentReceipt | null> {

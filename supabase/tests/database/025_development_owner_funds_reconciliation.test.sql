@@ -9,9 +9,9 @@ select is((select capital_returned from public.dashboard_owner_capital_positions
 select is((select current_contributed_capital from public.dashboard_owner_capital_positions where owner_label='Nasim'),0.00::numeric,'Nasim current contributed capital is zero');
 select is((select due_from_owner from public.dashboard_owner_capital_positions where owner_label='Nasim'),7714.00::numeric,'Nasim current Due is 7,714');
 
-select is((select historical_investment from public.dashboard_owner_capital_positions where owner_label='Rifat'),33600.00::numeric,'Rifat historical investment remains 33,600');
+select is((select historical_investment from public.dashboard_owner_capital_positions where owner_label='Rifat'),35219.10::numeric,'Rifat historical investment remains 35,219.10');
 select is((select capital_returned from public.dashboard_owner_capital_positions where owner_label='Rifat'),10000.00::numeric,'Rifat capital returned is 10,000');
-select is((select current_contributed_capital from public.dashboard_owner_capital_positions where owner_label='Rifat'),23600.00::numeric,'Rifat current contributed capital is 23,600');
+select is((select current_contributed_capital from public.dashboard_owner_capital_positions where owner_label='Rifat'),25219.10::numeric,'Rifat current contributed capital is 25,219.10');
 select is((select due_from_owner from public.dashboard_owner_capital_positions where owner_label='Rifat'),0.00::numeric,'Rifat current Due is zero');
 
 select is((select historical_investment from public.dashboard_owner_capital_positions where owner_label='Ikbal'),0.00::numeric,'Ikbal historical investment remains zero');
@@ -19,11 +19,11 @@ select is((select capital_returned from public.dashboard_owner_capital_positions
 select is((select current_contributed_capital from public.dashboard_owner_capital_positions where owner_label='Ikbal'),0.00::numeric,'Ikbal current contributed capital is zero');
 select is((select due_from_owner from public.dashboard_owner_capital_positions where owner_label='Ikbal'),1000.00::numeric,'Ikbal current Due is 1,000');
 
-select is((select sum(historical_investment)::numeric from public.dashboard_owner_capital_positions),48720.00::numeric,'total historical investment is 48,720');
+select is((select sum(historical_investment)::numeric from public.dashboard_owner_capital_positions),50339.10::numeric,'total historical investment is 50,339.10');
 select is((select sum(capital_returned)::numeric from public.dashboard_owner_capital_positions),25120.00::numeric,'total capital returned is 25,120');
-select is((select sum(current_contributed_capital)::numeric from public.dashboard_owner_capital_positions),23600.00::numeric,'total current contributed capital is 23,600');
+select is((select sum(current_contributed_capital)::numeric from public.dashboard_owner_capital_positions),25219.10::numeric,'total current contributed capital is 25,219.10');
 select is((select sum(due_from_owner)::numeric from public.dashboard_owner_capital_positions),8714.00::numeric,'total current Due is 8,714');
-select is((select sum(current_contributed_capital-due_from_owner)::numeric from public.dashboard_owner_capital_positions),14886.00::numeric,'current capital less current Due is 14,886');
+select is((select sum(current_contributed_capital-due_from_owner)::numeric from public.dashboard_owner_capital_positions),16505.10::numeric,'current capital less current Due is 16,505.10');
 select is((select sum(capital_returned+due_from_owner)::numeric from public.dashboard_owner_capital_positions),33834.00::numeric,'returned capital plus current Due is 33,834');
 select ok(not exists(select 1 from public.dashboard_owner_capital_positions where current_contributed_capital < 0),'no owner has negative current capital');
 
@@ -49,10 +49,10 @@ select is((select count(*) from public.dashboard_cash_ledger where account_key='
 
 -- Reporting-only correction does not touch recognized sales economics, cash,
 -- or the intentionally unallocated procurement inventory evidence.
-select is((select count(*) filter(where is_delivered) from public.dashboard_order_financials),51::bigint,'Delivered order count remains 51');
-select is((select sum(recognized_product_revenue)::numeric from public.dashboard_order_financials where is_delivered),41330.00::numeric,'recognized product revenue remains 41,330');
-select is((select sum(net_revenue)::numeric from public.dashboard_order_financials where is_delivered),43440.00::numeric,'recognized net revenue remains 43,440');
-select is((select sum(recognized_cogs)::numeric from public.dashboard_order_financials where is_delivered),21680.00::numeric,'recognized COGS remains 21,680');
+select is((select count(*) filter(where is_delivered) from public.dashboard_order_financials),52::bigint,'Delivered order count remains 52');
+select is((select sum(recognized_product_revenue)::numeric from public.dashboard_order_financials where is_delivered),42380.00::numeric,'recognized product revenue remains 42,380');
+select is((select sum(net_revenue)::numeric from public.dashboard_order_financials where is_delivered),44490.00::numeric,'recognized net revenue remains 44,490');
+select is((select sum(recognized_cogs)::numeric from public.dashboard_order_financials where is_delivered),22180.00::numeric,'recognized COGS remains 22,180');
 select is((select ledger_business_cash from public.dashboard_capital_spending_available_funds),49849.70::numeric,'ledger business cash remains 49,849.70');
 select is((select actual_business_cash from public.dashboard_capital_spending_available_funds),0.00::numeric,'observed actual business cash remains zero');
 select is((select known_inventory_value from public.dashboard_procurement_summary),0.00::numeric,'known inventory value remains zero without allocation evidence');

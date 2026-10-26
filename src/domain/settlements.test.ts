@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateSettlementNet, ownerAllocationRemaining, ownerAllocationTotal, safeSettlementError, selectedReceivableTotal, settlementEntrySchema, settlementReversalSchema, settlementRpcArgs } from "@/domain/settlements";
 import { parseMoney } from "@/domain/money";
-import type { SettlementEligibleOrder } from "@/domain/types";
+import type { SettlementEligibleOrder, SettlementEligibleRejectedAdjustment } from "@/domain/types";
 
 const order: SettlementEligibleOrder = {
   orderId: "82400000-0000-4000-8000-000000000001", orderNumber: "NN-1", orderDate: "2026-07-22",
@@ -10,7 +10,12 @@ const order: SettlementEligibleOrder = {
 const valid = {
   settlementDate: "2026-07-22", receiptTreatment: "business_account" as const, receivingMethod: "bkash" as const, ownerAllocations: [], grossCodAmount: "580.25", deductions: "30.25",
   netReceived: "550.00", courierReference: "ST-1", receivingAccountLabel: "", receivingAccountLast4: "1234",
-  transactionReference: "TX-1", note: "July collection", selectedOrderIds: [order.orderId], idempotencyKey: "82500000-0000-4000-8000-000000000001",
+  transactionReference: "TX-1", note: "July collection", selectedOrderIds: [order.orderId], selectedAdjustmentIds: [], idempotencyKey: "82500000-0000-4000-8000-000000000001",
+};
+const rejectedAdjustment: SettlementEligibleRejectedAdjustment = {
+  adjustmentId: "82700000-0000-4000-8000-000000000001", orderId: "82800000-0000-4000-8000-000000000001",
+  orderNumber: "284766796", orderDate: "2026-08-16", customerName: "জয়", trackingCode: "SFR260816ST31CFD53BD",
+  expectedCreatedAt: "2026-08-23T10:00:00+06:00", grossCodRecovery: parseMoney("100"), courierCharge: parseMoney("115"), expectedNetAdjustment: -1_500,
 };
 
 describe("Steadfast settlement domain contract", () => {
@@ -34,12 +39,20 @@ describe("Steadfast settlement domain contract", () => {
   it("rejects unmasked account identifiers", () => expect(settlementEntrySchema.safeParse({ ...valid, receivingAccountLast4: "01712345678" }).success).toBe(false));
   it("rejects credential-like private details", () => expect(settlementEntrySchema.safeParse({ ...valid, note: "OTP 123456" }).success).toBe(false));
   it("sums only selected receivables", () => expect(selectedReceivableTotal([order.orderId], [order, { ...order, orderId: "82400000-0000-4000-8000-000000000002" }])).toBe(order.grossCodReceivable));
-  it("maps exact RPC decimals, destination treatment, and freshness evidence", () => expect(settlementRpcArgs(valid, [order])).toMatchObject({ p_receipt_treatment: "business_account", p_owner_allocations: [], p_gross_cod_amount: 580.25, p_deductions: 30.25, p_net_received: 550, p_orders: [{ order_id: order.orderId, expected_updated_at: order.expectedUpdatedAt }] }));
+  it("maps exact RPC decimals, destination treatment, and freshness evidence", () => expect(settlementRpcArgs(valid, [order], [])).toMatchObject({ p_receipt_treatment: "business_account", p_owner_allocations: [], p_gross_cod_amount: 580.25, p_deductions: 30.25, p_net_received: 550, p_orders: [{ order_id: order.orderId, expected_updated_at: order.expectedUpdatedAt }], p_rejected_adjustments: [] }));
+  it("adds rejected delivery recovery to gross and requires its exact courier charge", () => {
+    const values = { ...valid, grossCodAmount: "680.25", deductions: "145.25", netReceived: "535.00", selectedAdjustmentIds: [rejectedAdjustment.adjustmentId] };
+    expect(settlementRpcArgs(values, [order], [rejectedAdjustment])).toMatchObject({
+      p_gross_cod_amount: 680.25, p_deductions: 145.25, p_net_received: 535,
+      p_rejected_adjustments: [{ adjustment_id: rejectedAdjustment.adjustmentId, expected_created_at: rejectedAdjustment.expectedCreatedAt }],
+    });
+    expect(() => settlementRpcArgs({ ...values, deductions: "114.99", netReceived: "565.26" }, [order], [rejectedAdjustment])).toThrow(/courier charges/);
+  });
   it("maps the exact split-owner invoice fixture without floating-point drift", () => {
     const fixture = { ...valid, settlementDate: "2026-08-21", receiptTreatment: "owner_held_business_funds" as const, receivingMethod: null, receivingAccountLast4: "", grossCodAmount: "12940", deductions: "1877", netReceived: "11063", ownerAllocations: [{ ownerLabel: "Rifat", amount: "10000" }, { ownerLabel: "Nasim", amount: "1063" }] };
     const fixtureOrder = { ...order, grossCodReceivable: parseMoney("12940") };
     expect(settlementEntrySchema.safeParse(fixture).success).toBe(true);
-    expect(settlementRpcArgs(fixture, [fixtureOrder]).p_owner_allocations).toEqual([{ owner_label: "Rifat", amount: 10000 }, { owner_label: "Nasim", amount: 1063 }]);
+    expect(settlementRpcArgs(fixture, [fixtureOrder], []).p_owner_allocations).toEqual([{ owner_label: "Rifat", amount: 10000 }, { owner_label: "Nasim", amount: 1063 }]);
     expect(ownerAllocationTotal(fixture.ownerAllocations)).toBe(parseMoney("11063"));
     expect(ownerAllocationRemaining(parseMoney("11063"), fixture.ownerAllocations)).toBe(0);
   });
@@ -49,9 +62,9 @@ describe("Steadfast settlement domain contract", () => {
     const ids = orders.map((item) => item.orderId);
     expect(selectedReceivableTotal(ids.filter((_, index) => index !== 4), orders)).toBe(parseMoney("12160"));
     expect(selectedReceivableTotal(ids, orders)).toBe(parseMoney("12940"));
-    expect(() => settlementRpcArgs({ ...valid, grossCodAmount: "12940", deductions: "1877", netReceived: "11063", selectedOrderIds: ids.filter((_, index) => index !== 4) }, orders)).toThrow(/reconcile/);
+    expect(() => settlementRpcArgs({ ...valid, grossCodAmount: "12940", deductions: "1877", netReceived: "11063", selectedOrderIds: ids.filter((_, index) => index !== 4) }, orders, [])).toThrow(/reconcile/);
   });
-  it("rejects stale client selections before calling the RPC", () => expect(() => settlementRpcArgs(valid, [])).toThrow(/stale/));
+  it("rejects stale client selections before calling the RPC", () => expect(() => settlementRpcArgs(valid, [], [])).toThrow(/stale/));
   it("preserves safe actionable conflict messages", () => expect(safeSettlementError(new Error("One order is already settled"))).toMatch(/already settled/));
   it("requires dated, reasoned, idempotent settlement reversal values", () => {
     expect(settlementReversalSchema.safeParse({ settlementId: "82600000-0000-4000-8000-000000000001", reversedOn: "2026-08-08", reason: "Incorrect courier batch", idempotencyKey: "82500000-0000-4000-8000-000000000002" }).success).toBe(true);

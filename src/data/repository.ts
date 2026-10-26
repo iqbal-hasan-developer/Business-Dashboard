@@ -1,4 +1,4 @@
-import type { BusinessSettings, Campaign, CashWorkspaceData, CourierSettlementData, CustomerPaymentReceipt, DashboardData, DashboardFilters, Expense, ExpenseAuditRecord, MarketingFilters, MarketingWorkspaceData, Order, Product, ProductCategory } from "@/domain/types";
+import type { BusinessSettings, Campaign, CashWorkspaceData, CourierSettlementData, CustomerPaymentReceipt, DashboardData, DashboardFilters, Expense, ExpenseAuditRecord, MarketingFilters, MarketingWorkspaceData, Order, Product, ProductCategory, RejectedCodAdjustment } from "@/domain/types";
 import { buildDashboardData, mockExpenses, mockOrders, mockProducts } from "@/data/mock-data";
 import { calculateOrderFinancials } from "@/domain/calculations";
 import { OWNER_APPROVED_BUSINESS_SETTINGS } from "@/domain/settings";
@@ -7,6 +7,7 @@ export interface BusinessRepository {
   getDashboard(filters?: DashboardFilters): Promise<DashboardData>;
   getOrders(): Promise<Order[]>;
   getOrder(id: string): Promise<Order | null>;
+  getRejectedCodAdjustment(orderId: string): Promise<RejectedCodAdjustment | null>;
   getCustomerPaymentReceipt(orderId: string): Promise<CustomerPaymentReceipt | null>;
   getProducts(): Promise<Product[]>;
   getProductCategories(): Promise<ProductCategory[]>;
@@ -23,6 +24,28 @@ export const mockRepository: BusinessRepository = {
   async getDashboard(filters = {}) { return buildDashboardData(filters); },
   async getOrders() { return mockOrders; },
   async getOrder(id) { return mockOrders.find((order) => order.id === id) ?? null; },
+  async getRejectedCodAdjustment(orderId) {
+    if (orderId !== "o10") return null;
+    return {
+      id: "00000000-0000-4000-8000-000000000810",
+      orderId,
+      orderNumber: "NNM-20260707-0010",
+      evidenceDate: "2026-07-07",
+      courier: "Steadfast",
+      trackingCode: "SFRMOCKREJECTED001",
+      courierOutcome: "Partial Delivered",
+      rejectionReason: "Customer rejected",
+      customerDeliveryChargeRecovery: 10_000,
+      courierCharge: 11_500,
+      expectedNetAdjustment: -1_500,
+      evidenceStatus: "provisional",
+      settlementConfirmationStatus: "Awaiting confirmation",
+      settlementId: null,
+      settlementDate: null,
+      settlementReference: null,
+      createdAt: "2026-07-07T12:00:00+06:00",
+    };
+  },
   async getCustomerPaymentReceipt() { return null; },
   async getProducts() { return mockProducts; },
   async getProductCategories() {
@@ -169,6 +192,7 @@ export const mockRepository: BusinessRepository = {
     return {
       eligibleOrders: mockOrders.filter((order) => order.paymentMethod === "COD" && order.status === "Delivered" && order.settlementStatus !== "Settled")
         .map((order) => ({ orderId: order.id, orderNumber: order.orderNumber, orderDate: order.orderDate, customerName: order.customerName, expectedUpdatedAt: order.updatedAt ?? new Date(`${order.orderDate}T00:00:00Z`).toISOString(), grossCodReceivable: calculateOrderFinancials(order).netRevenue })),
+      eligibleRejectedAdjustments: [],
       batches: [],
     };
   },

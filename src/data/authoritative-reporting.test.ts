@@ -7,6 +7,7 @@ import {
   financialSummaryRowSchema,
   orderFinancialRowSchema,
   productFinancialRowSchema,
+  rejectedCodAdjustmentFinancialRowSchema,
   selectCurrentUnsettledCodRows,
   summarizeOrderFinancialRows,
 } from "@/data/authoritative-reporting";
@@ -82,6 +83,21 @@ describe("authoritative reporting contracts", () => {
     expect(summary.contribution_profit).toBeNull();
     expect(summary.net_profit).toBeNull();
     expect(summary.profit_margin).toBeNull();
+  });
+
+  it("adds a confirmed rejected COD recovery and courier charge without product revenue or COGS", () => {
+    const adjustment = rejectedCodAdjustmentFinancialRowSchema.parse({
+      event_date: "2026-08-23", order_id: "00000000-0000-4000-8000-000000000099",
+      order_number: "284766796", sales_channel: "Facebook Messenger", campaign_id: null,
+      delivery_charge_recovery: "100.00", courier_cost: "115.00", net_adjustment: "-15.00",
+      settlement_id: "00000000-0000-4000-8000-000000000098", recognized_at: "2026-08-23T10:00:00Z",
+    });
+    const summary = summarizeOrderFinancialRows([], 0, 0, [adjustment]);
+    expect(summary).toMatchObject({
+      delivered_order_count: 0, product_revenue: 0, net_revenue: 10_000,
+      cogs: 0, gross_profit: 10_000, contribution_profit: -1_500,
+      average_order_value: 0, net_profit: -1_500,
+    });
   });
 
   it("preserves an unknown daily contribution value instead of converting it to zero", () => {

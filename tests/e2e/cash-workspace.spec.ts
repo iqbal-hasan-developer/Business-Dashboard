@@ -6,6 +6,7 @@ test.describe("cash workspace controls", () => {
 
     const history = page.getByRole("region", { name: "Owner money taken history" });
     await expect(history).toBeVisible();
+    await history.getByRole("heading", { name: "View owner money taken history" }).click();
     await expect(history.getByRole("row")).toHaveCount(7);
     await expect(history.getByText("2026-07-21", { exact: true })).toBeVisible();
     await expect(history.getByText("2026-07-23", { exact: true })).toBeVisible();

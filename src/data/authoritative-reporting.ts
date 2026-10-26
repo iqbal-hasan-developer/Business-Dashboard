@@ -74,6 +74,19 @@ export const orderFinancialRowSchema = z.object({
   recognized_packaging_cost: nullableDatabaseMoneySchema,
 }).strict();
 
+export const rejectedCodAdjustmentFinancialRowSchema = z.object({
+  event_date: z.string().date(),
+  order_id: z.string().uuid(),
+  order_number: z.string(),
+  sales_channel: z.string(),
+  campaign_id: z.string().uuid().nullable(),
+  delivery_charge_recovery: databaseMoneySchema,
+  courier_cost: databaseMoneySchema,
+  net_adjustment: databaseMoneySchema,
+  settlement_id: z.string().uuid(),
+  recognized_at: z.string(),
+}).strict();
+
 export const dailyFinancialRowSchema = z.object({
   business_date: z.string().date(),
   delivered_order_count: databaseCountSchema,
@@ -148,6 +161,7 @@ export const procurementSummaryRowSchema = z.object({
 
 export type FinancialSummaryRow = z.output<typeof financialSummaryRowSchema>;
 export type OrderFinancialRow = z.output<typeof orderFinancialRowSchema>;
+export type RejectedCodAdjustmentFinancialRow = z.output<typeof rejectedCodAdjustmentFinancialRowSchema>;
 export type DailyFinancialRow = z.output<typeof dailyFinancialRowSchema>;
 export type ProductFinancialRow = z.output<typeof productFinancialRowSchema>;
 export type ReconciliationRow = z.output<typeof reconciliationRowSchema>;
@@ -199,15 +213,21 @@ export function summarizeOrderFinancialRows(
   rows: OrderFinancialRow[],
   adSpend: Money,
   expenses: Money,
+  rejectedAdjustments: RejectedCodAdjustmentFinancialRow[] = [],
 ): FinancialSummaryRow {
   const cogsComplete = rows.every((row) => row.cogs_complete);
   const fulfillmentComplete = rows.every((row) => row.fulfillment_costs_complete);
   const productRevenue = sumMoney(rows.map((row) => row.recognized_product_revenue));
-  const netRevenue = sumMoney(rows.map((row) => row.net_revenue));
+  const orderNetRevenue = sumMoney(rows.map((row) => row.net_revenue));
+  const rejectedRecovery = sumMoney(rejectedAdjustments.map((row) => row.delivery_charge_recovery));
+  const rejectedContribution = sumMoney(rejectedAdjustments.map((row) => row.net_adjustment));
+  const netRevenue = sumMoney([orderNetRevenue, rejectedRecovery]);
   const cogs = cogsComplete ? sumMoney(rows.map((row) => row.recognized_cogs ?? 0)) : null;
-  const grossProfit = cogsComplete ? sumMoney(rows.map((row) => row.gross_profit ?? 0)) : null;
+  const grossProfit = cogsComplete
+    ? sumMoney([...rows.map((row) => row.gross_profit ?? 0), rejectedRecovery])
+    : null;
   const contributionProfit = cogsComplete && fulfillmentComplete
-    ? sumMoney(rows.map((row) => row.contribution_profit ?? 0))
+    ? sumMoney([...rows.map((row) => row.contribution_profit ?? 0), rejectedContribution])
     : null;
   const netProfit = contributionProfit === null ? null : contributionProfit - adSpend - expenses;
   if (netProfit !== null) assertMoney(netProfit);
@@ -220,7 +240,7 @@ export function summarizeOrderFinancialRows(
     cogs,
     gross_profit: grossProfit,
     contribution_profit: contributionProfit,
-    average_order_value: rows.length ? Math.round(netRevenue / rows.length) : 0,
+    average_order_value: rows.length ? Math.round(orderNetRevenue / rows.length) : 0,
     ad_spend: adSpend,
     expenses,
     net_profit: netProfit,

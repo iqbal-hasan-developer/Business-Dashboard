@@ -33,8 +33,8 @@ where procedure.oid = 'public.update_business_financial_defaults(text,bigint,big
 select is((select setting_value from public.business_settings where setting_key = 'currency'), '"BDT"'::jsonb, 'currency is BDT');
 select is((select setting_value from public.business_settings where setting_key = 'business_timezone'), '"Asia/Dhaka"'::jsonb, 'timezone is Asia/Dhaka');
 select is((select setting_value from public.business_settings where setting_key = 'inside_dhaka_courier_cost_poisha'), '6500'::jsonb, 'Inside Dhaka default is 6500 poisha');
-select is((select setting_value from public.business_settings where setting_key = 'outside_dhaka_courier_cost_poisha'), '11500'::jsonb, 'Outside Dhaka default is 11500 poisha');
-select is((select setting_value from public.business_settings where setting_key = 'packaging_cost_per_order_poisha'), '200'::jsonb, 'packaging default is 200 poisha');
+select is((select setting_value from public.business_settings where setting_key = 'outside_dhaka_courier_cost_poisha'), '13500'::jsonb, 'Outside Dhaka default is 13500 poisha');
+select is((select setting_value from public.business_settings where setting_key = 'packaging_cost_per_order_poisha'), '800'::jsonb, 'packaging default is 800 poisha');
 select is((select setting_value from public.business_settings where setting_key = 'tax_vat_basis_points'), '0'::jsonb, 'tax default is zero basis points');
 select is((select count(*) from public.business_lookup_values where lookup_type = 'cash_account' and is_active), 5::bigint, 'five active cash accounts are seeded');
 select ok(not has_table_privilege('anon', 'public.business_settings', 'SELECT'), 'anonymous settings reads remain denied');

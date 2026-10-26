@@ -5,8 +5,8 @@ describe("business settings", () => {
   it("preserves the owner-approved defaults in integer poisha", () => {
     expect(OWNER_APPROVED_BUSINESS_SETTINGS).toMatchObject({
       insideDhakaCourierCost: 6500,
-      outsideDhakaCourierCost: 11500,
-      packagingCostPerOrder: 200,
+      outsideDhakaCourierCost: 13500,
+      packagingCostPerOrder: 800,
       taxVatBasisPoints: 0,
     });
   });
@@ -37,6 +37,6 @@ describe("business settings", () => {
 
   it("selects the correct location default without changing the stored settings", () => {
     expect(courierCostForLocation(OWNER_APPROVED_BUSINESS_SETTINGS, "Inside Dhaka")).toBe(6500);
-    expect(courierCostForLocation(OWNER_APPROVED_BUSINESS_SETTINGS, "Outside Dhaka")).toBe(11500);
+    expect(courierCostForLocation(OWNER_APPROVED_BUSINESS_SETTINGS, "Outside Dhaka")).toBe(13500);
   });
 });

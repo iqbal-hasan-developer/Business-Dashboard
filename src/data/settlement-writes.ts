@@ -1,14 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { settlementRpcArgs, type SettlementEntryValues, type SettlementReversalValues } from "@/domain/settlements";
-import type { SettlementEligibleOrder } from "@/domain/types";
+import type { SettlementEligibleOrder, SettlementEligibleRejectedAdjustment } from "@/domain/types";
 
 export async function recordSteadfastSettlement(
   client: SupabaseClient<Database>,
   values: SettlementEntryValues,
   eligibleOrders: SettlementEligibleOrder[],
+  eligibleAdjustments: SettlementEligibleRejectedAdjustment[],
 ) {
-  const { data, error } = await client.rpc("record_steadfast_cod_settlement_v3", settlementRpcArgs(values, eligibleOrders));
+  const { data, error } = await client.rpc("record_steadfast_cod_settlement_v4", settlementRpcArgs(values, eligibleOrders, eligibleAdjustments));
   if (error) throw error;
   if (!data) throw new Error("The settlement RPC did not return a batch identifier.");
   return data;

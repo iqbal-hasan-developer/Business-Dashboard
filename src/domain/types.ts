@@ -167,6 +167,26 @@ export interface Order {
   packagingCostSnapshotKnown?: boolean;
 }
 
+export interface RejectedCodAdjustment {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  evidenceDate: string;
+  courier: "Steadfast";
+  trackingCode: string;
+  courierOutcome: "Partial Delivered";
+  rejectionReason: "Customer rejected";
+  customerDeliveryChargeRecovery: Money;
+  courierCharge: Money;
+  expectedNetAdjustment: Money;
+  evidenceStatus: "provisional";
+  settlementConfirmationStatus: "Awaiting confirmation" | "Confirmed";
+  settlementId: string | null;
+  settlementDate: string | null;
+  settlementReference: string | null;
+  createdAt: string;
+}
+
 export interface CustomerPaymentReceipt {
   id: string;
   orderId: string;
@@ -216,11 +236,35 @@ export interface SettlementEligibleOrder {
   grossCodReceivable: Money;
 }
 
+export interface SettlementEligibleRejectedAdjustment {
+  adjustmentId: string;
+  orderId: string;
+  orderNumber: string;
+  orderDate: string;
+  customerName: string;
+  trackingCode: string;
+  expectedCreatedAt: string;
+  grossCodRecovery: Money;
+  courierCharge: Money;
+  expectedNetAdjustment: Money;
+}
+
 export interface SettlementBatchOrder {
   orderId: string;
   orderNumber: string;
   customerName: string;
   allocatedAmount: Money;
+}
+
+export interface SettlementBatchRejectedAdjustment {
+  adjustmentId: string;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  trackingCode: string;
+  grossCodRecovery: Money;
+  courierCharge: Money;
+  netAdjustment: Money;
 }
 
 export interface SettlementReceiptAllocation {
@@ -252,10 +296,12 @@ export interface SettlementBatch {
   reversalReason: string;
   receiptAllocations: SettlementReceiptAllocation[];
   orders: SettlementBatchOrder[];
+  rejectedAdjustments: SettlementBatchRejectedAdjustment[];
 }
 
 export interface CourierSettlementData {
   eligibleOrders: SettlementEligibleOrder[];
+  eligibleRejectedAdjustments: SettlementEligibleRejectedAdjustment[];
   batches: SettlementBatch[];
 }
 
