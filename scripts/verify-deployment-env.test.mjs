@@ -16,6 +16,13 @@ describe("deployment environment preflight", () => {
     expect(validateDeploymentEnv(validProduction)).toEqual({ errors: [], warnings: [] });
   });
 
+  it("handles accidental surrounding quotes on URLs", () => {
+    expect(validateDeploymentEnv({
+      ...validProduction,
+      NEXT_PUBLIC_APP_URL: '"https://dashboard.nexanotion.online"',
+    })).toEqual({ errors: [], warnings: [] });
+  });
+
   it("rejects missing production variables", () => {
     const result = validateDeploymentEnv({ VERCEL_ENV: "production" });
     expect(result.errors).toHaveLength(4);

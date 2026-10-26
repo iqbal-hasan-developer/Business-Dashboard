@@ -13,11 +13,19 @@ const MOCK_CONTROL_NAMES = ["ENABLE_MOCK_EXPENSE_CONTROLS", "ENABLE_MOCK_MARKETI
 const { loadEnvConfig } = nextEnv;
 
 function parseUrl(value, name, { requireHttps }) {
+  let cleaned = value?.trim();
+  if (cleaned && ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'")))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
   let url;
   try {
-    url = new URL(value);
+    url = new URL(cleaned);
   } catch {
-    return { error: `${name} must be a valid absolute URL.` };
+    const hint = !cleaned?.startsWith("http://") && !cleaned?.startsWith("https://")
+      ? " (Did you forget 'https://' at the beginning? e.g. 'https://your-app.vercel.app')"
+      : "";
+    return { error: `${name} must be a valid absolute URL.${hint}` };
   }
 
   const localHost = ["localhost", "127.0.0.1"].includes(url.hostname);
