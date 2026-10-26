@@ -16,6 +16,17 @@ describe("deployment environment preflight", () => {
     expect(validateDeploymentEnv(validProduction)).toEqual({ errors: [], warnings: [] });
   });
 
+  it("accepts standalone mock demo deployments when ENABLE_MOCK_DEMO is true", () => {
+    const result = validateDeploymentEnv({
+      VERCEL_ENV: "production",
+      BUSINESS_DATA_PROVIDER: "mock",
+      ENABLE_MOCK_DEMO: "true",
+      NEXT_PUBLIC_APP_URL: "https://business-dashboard.vercel.app",
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([expect.stringMatching(/ENABLE_MOCK_DEMO is active/)]);
+  });
+
   it("handles accidental surrounding quotes on URLs", () => {
     expect(validateDeploymentEnv({
       ...validProduction,

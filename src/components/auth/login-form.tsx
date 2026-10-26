@@ -52,6 +52,10 @@ export function LoginForm() {
             <span className="font-semibold select-all">{DEMO_PASSWORD}</span>
           </div>
         </div>
+        <div className="mt-2.5 border-t border-sky-200/70 pt-2 text-[10.5px] text-sky-800/90 flex items-center justify-between">
+          <span>Sandbox Preview</span>
+          <span className="rounded bg-sky-200/60 px-1.5 py-0.5 font-medium text-sky-900">Sample Data</span>
+        </div>
       </div>
 
       <form action={action} className="space-y-4">

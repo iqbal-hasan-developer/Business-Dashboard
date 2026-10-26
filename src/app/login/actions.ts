@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveDashboardUser } from "@/lib/auth/profile";
@@ -8,8 +9,11 @@ import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 
 export type LoginState = { error?: string };
 
+const DEMO_EMAIL = "demo@nexanotion.online";
+const DEMO_PASSWORD = "DemoUser2026!";
+
 const loginSchema = z.object({
-  email: z.email(),
+  email: z.string().email(),
   password: z.string().min(1),
   next: z.string().optional(),
 });
@@ -22,11 +26,24 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
   });
   if (!parsed.success) return { error: "Enter a valid email address and password." };
 
-  let destination = "/dashboard";
-  try {
-    if (resolveBusinessDataProvider() !== "supabase") {
-      return { error: "Dashboard authentication is unavailable in mock mode." };
+  const next = parsed.data.next;
+  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+
+  if (resolveBusinessDataProvider() === "mock") {
+    if (parsed.data.email.toLowerCase() === DEMO_EMAIL.toLowerCase() && parsed.data.password === DEMO_PASSWORD) {
+      const cookieStore = await cookies();
+      cookieStore.set("demo_auth_session", "active", {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+      redirect(destination);
     }
+    return { error: `Invalid demo credentials. Use ${DEMO_EMAIL} and ${DEMO_PASSWORD}.` };
+  }
+
+  try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: parsed.data.email,
@@ -43,9 +60,6 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
       await supabase.auth.signOut();
       return { error: "This account is not authorized for the dashboard." };
     }
-
-    const next = parsed.data.next;
-    destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
   } catch {
     return { error: "Dashboard authentication is not configured." };
   }
@@ -54,6 +68,12 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
 }
 
 export async function signOut() {
+  if (resolveBusinessDataProvider() === "mock") {
+    const cookieStore = await cookies();
+    cookieStore.delete("demo_auth_session");
+    redirect("/login");
+  }
+
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
   redirect("/login");

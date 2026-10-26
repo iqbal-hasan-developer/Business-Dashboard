@@ -6,6 +6,7 @@ describe("business data provider", () => {
     expect(resolveBusinessDataProvider({ NODE_ENV: "development", BUSINESS_DATA_PROVIDER: "mock" })).toBe("mock");
     expect(() => resolveBusinessDataProvider({ NODE_ENV: "development" })).toThrow(/required/);
     expect(() => resolveBusinessDataProvider({ NODE_ENV: "production", BUSINESS_DATA_PROVIDER: "mock" })).toThrow(/disabled/);
+    expect(resolveBusinessDataProvider({ NODE_ENV: "production", BUSINESS_DATA_PROVIDER: "mock", ENABLE_MOCK_DEMO: "true" })).toBe("mock");
   });
 
   it("fails closed when the Supabase connection contract is incomplete", () => {

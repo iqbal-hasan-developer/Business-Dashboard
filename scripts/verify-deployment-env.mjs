@@ -53,9 +53,22 @@ function jwtRole(value) {
 export function validateDeploymentEnv(env) {
   const errors = [];
   const warnings = [];
+  const isMockDemo = env.ENABLE_MOCK_DEMO?.trim().toLowerCase() === "true";
   const vercelEnvironment = env.VERCEL_ENV?.trim().toLowerCase();
   const isVercelPreview = vercelEnvironment === "preview";
   const requireHttps = vercelEnvironment === "production";
+
+  if (isMockDemo) {
+    if (!env.NEXT_PUBLIC_APP_URL?.trim()) {
+      errors.push("NEXT_PUBLIC_APP_URL is required.");
+    } else {
+      const app = parseUrl(env.NEXT_PUBLIC_APP_URL.trim(), "NEXT_PUBLIC_APP_URL", { requireHttps });
+      if (app.error) errors.push(app.error);
+    }
+    warnings.push("ENABLE_MOCK_DEMO is active. Deploying isolated demo with sample data; no Supabase connection required.");
+    return { errors, warnings };
+  }
+
   const missing = REQUIRED_NAMES.filter((name) => !env[name]?.trim());
 
   if (isVercelPreview && missing.length > 0) {

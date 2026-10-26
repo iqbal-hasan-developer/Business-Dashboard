@@ -5,6 +5,7 @@ type RuntimeEnv = Record<string, string | undefined>;
 export function resolveBusinessDataProvider(env: RuntimeEnv = process.env): BusinessDataProvider {
   const requested = env.BUSINESS_DATA_PROVIDER?.trim().toLowerCase();
   const production = env.NODE_ENV === "production";
+  const allowMockDemo = env.ENABLE_MOCK_DEMO === "true";
 
   if (!requested) {
     throw new Error("BUSINESS_DATA_PROVIDER is required.");
@@ -12,7 +13,7 @@ export function resolveBusinessDataProvider(env: RuntimeEnv = process.env): Busi
   if (requested !== "mock" && requested !== "supabase") {
     throw new Error("BUSINESS_DATA_PROVIDER must be either mock or supabase.");
   }
-  if (requested === "mock" && production) {
+  if (requested === "mock" && production && !allowMockDemo) {
     throw new Error("Mock business data is disabled in production.");
   }
   return requested;

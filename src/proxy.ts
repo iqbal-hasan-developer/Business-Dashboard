@@ -5,7 +5,25 @@ import { updateSupabaseSession } from "@/lib/supabase/proxy";
 export async function proxy(request: NextRequest) {
   const publicRoute = request.nextUrl.pathname === "/login";
   try {
-    if (resolveBusinessDataProvider() === "mock") return NextResponse.next();
+    if (resolveBusinessDataProvider() === "mock") {
+      if (process.env.VERCEL) {
+        const hasSession = request.cookies.get("demo_auth_session")?.value === "active";
+        if (!hasSession && !publicRoute) {
+          const login = request.nextUrl.clone();
+          login.pathname = "/login";
+          login.search = "";
+          login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+          return NextResponse.redirect(login);
+        }
+        if (hasSession && publicRoute) {
+          const dashboard = request.nextUrl.clone();
+          dashboard.pathname = "/dashboard";
+          dashboard.search = "";
+          return NextResponse.redirect(dashboard);
+        }
+      }
+      return NextResponse.next();
+    }
   } catch {
     if (publicRoute) return NextResponse.next();
     const login = request.nextUrl.clone();
