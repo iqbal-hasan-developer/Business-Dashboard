@@ -275,7 +275,7 @@ describe("isolated PostgreSQL workspace schema and RLS", () => {
     const { rows: versions } = await database.query<{ version: string; checksum_sha256: string }>(
       "select version, checksum_sha256 from universal_migrations.schema_versions order by version",
     );
-    expect(versions.map((row) => row.version)).toEqual(["202611040001", "202611040002", "202611040003", "202611040004", "202611040005", "202611070006", "202611070007"]);
+    expect(versions.map((row) => row.version)).toEqual(["202611040001", "202611040002", "202611040003", "202611040004", "202611040005", "202611070006", "202611070007", "202611070008"]);
     expect(versions.every((row) => row.checksum_sha256.length === 64)).toBe(true);
   });
 
