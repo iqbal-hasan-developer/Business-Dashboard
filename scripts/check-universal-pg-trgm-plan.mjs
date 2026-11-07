@@ -20,8 +20,14 @@ const expectedIndexes = [
 const client = new Client({ connectionString: services.DB_URL, application_name: "universal-pg-trgm-check" });
 await client.connect();
 try {
+  const server = await client.query("select current_setting('server_version') as version");
+  const available = await client.query("select default_version from pg_catalog.pg_available_extensions where name='pg_trgm'");
   const extension = await client.query("select n.nspname as schema from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname='pg_trgm'");
-  assert.equal(extension.rows[0]?.schema, "extensions", "pg_trgm must be installed in extensions");
+  assert.equal(
+    extension.rows[0]?.schema,
+    "extensions",
+    `pg_trgm must be installed in extensions; PostgreSQL ${server.rows[0].version}, available=${available.rows.length > 0}`,
+  );
   const indexes = await client.query(
     `select index_class.relname as indexname, access_method.amname,
         operator_schema.nspname as operator_schema, operator_class.opcname as operator_class

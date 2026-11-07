@@ -12,7 +12,7 @@ constraints, migration checksums, the workspace overview reader, commerce RPCs,
 inventory issue, refund recording, and financial completeness. A PostgreSQL 17
 Supabase CLI CI workflow includes real local Auth/PostgREST requests and a
 Playwright registration, invitation, switching, and revocation flow. Docker is
-unavailable here. The first hosted PR run, [42371442520](https://github.com/iqbal-hasan-developer/Business-Dashboard/actions/runs/42371442520), started but failed at `npm ci` before the test steps: npm reported that the lockfile omitted `@emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3`. The lockfile has since been regenerated with npm 10.9.4; a real clean install and local checks pass, but the fix has not yet been pushed or rerun on GitHub. The
+unavailable here. The first hosted PR run, [42371442520](https://github.com/iqbal-hasan-developer/Business-Dashboard/actions/runs/42371442520), failed at `npm ci` because the lockfile omitted `@emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3`; that lockfile fix was pushed. The next run passed install, tests, Supabase startup, and schema reset, then failed in the `pg_trgm` check ([run 42374401971](https://github.com/iqbal-hasan-developer/Business-Dashboard/actions/runs/42374401971)). The check has been hardened locally, but that change is not yet pushed. The
 previously recorded dependency audit reported no production vulnerabilities
 and 21 development-tree findings (2 high, 18 moderate, 1 low); dependency audit
 was not rerun for Phase 4C.
@@ -65,9 +65,9 @@ GitHub:
 **Phase 4 status: PARTIAL.** Local implementation and embedded tests are
 available; consult the run results recorded at completion for exact counts.
 Successful PostgreSQL 17/`pg_trgm`, Supabase Auth/PostgREST, and Playwright
-verification, plus the restored-source rehearsal, remain pending. The first
-hosted run failed before those steps; rerun after publishing the lockfile fix.
-Do not treat this phase as release-ready.
+verification, plus the restored-source rehearsal, remain pending. The latest
+hosted run failed at `pg_trgm`; rerun after publishing the check fix. Do not
+treat this phase as release-ready.
 ## Audit and architecture
 
 - [x] Complete read-only repository audit.

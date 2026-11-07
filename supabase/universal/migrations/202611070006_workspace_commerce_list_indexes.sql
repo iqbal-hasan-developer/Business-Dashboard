@@ -21,13 +21,14 @@ create index expenses_workspace_amount_page_idx
 create index expenses_workspace_category_page_idx
   on public.expenses (workspace_id, category, id);
 
--- Substring search remains functionally available through ILIKE when pg_trgm
--- is absent, but it will not have trigram indexes. The PostgreSQL 17 CI check
--- requires this extension and fails if these indexes are not created. PGlite
--- omits pg_trgm and therefore only exercises this migration's fallback path.
+-- Substring search remains functionally available through ILIKE in the PGlite
+-- test harness, which omits pg_trgm. On the production-target PostgreSQL 17
+-- image, attempt installation even if pg_available_extensions hides the row;
+-- CREATE EXTENSION then either succeeds or reports the real image/privilege issue.
 do $migration$
 begin
-  if exists (select 1 from pg_catalog.pg_available_extensions where name = 'pg_trgm') then
+  if exists (select 1 from pg_catalog.pg_available_extensions where name = 'pg_trgm')
+     or current_setting('server_version_num')::integer between 170000 and 179999 then
     create extension if not exists pg_trgm with schema extensions;
     if (select n.nspname from pg_catalog.pg_extension e join pg_catalog.pg_namespace n on n.oid = e.extnamespace where e.extname = 'pg_trgm') <> 'extensions' then
       -- pg_trgm is relocatable; normalize a preinstalled copy before using

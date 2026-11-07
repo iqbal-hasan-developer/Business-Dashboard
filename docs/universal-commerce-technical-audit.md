@@ -381,8 +381,11 @@ The GitHub workflow covers unit/PGlite, typecheck/lint, isolated Supabase
 startup/readiness, migration reset, PostgreSQL 17 `pg_trgm` checks, pgTAP, Auth
 and PostgREST isolation, and Playwright. It writes a step summary with the job
 status and run URL and redacts startup diagnostics. Hosted run `42371442520`
-was triggered by PR #1 but stopped at `npm ci` because the lockfile was missing
-`@emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3`. The lockfile fix was
-generated with npm 10.9.4; a real clean install, all 344 tests, lint, typecheck,
-and build pass locally. The fix is not yet pushed, so the hosted run must be
-repeated. No restored-source rehearsal is available; Phase 4 remains PARTIAL.
+stopped at `npm ci` because the lockfile omitted `@emnapi/runtime@1.11.3` and
+`@emnapi/core@1.11.3`; that lockfile fix was pushed. Run `42374401971` then
+passed install, tests, Supabase startup, and schema reset but failed in the
+`pg_trgm` check. The local check now uses a catalog query for its operator-class
+assertion and an explicit `generate_series` column alias. This fix is not yet
+hosted-verified. The clean install, all 344 tests, lint, typecheck, and build
+pass locally. No restored-source rehearsal is available; Phase 4 remains
+PARTIAL.
