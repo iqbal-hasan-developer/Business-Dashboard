@@ -113,7 +113,7 @@ beforeAll(async () => {
     executeSql: (sql) => database.exec(sql),
     write: (line) => { migrationOutput.push(line); },
   });
-  expect(migrationOutput.filter((line) => line.startsWith("Applied universal migration"))).toHaveLength(7);
+  expect(migrationOutput.filter((line) => line.startsWith("Applied universal migration"))).toHaveLength(8);
 
   await database.query(
     `insert into auth.users (id, email, email_confirmed_at) values
