@@ -365,7 +365,8 @@ Migration 006 conditionally installs `pg_trgm` into `extensions` and defines 13
 GIN `gin_trgm_ops` indexes when available. PGlite omits that extension. A CI
 check now requires the extension, all 13 indexes with the expected opclass, and
 an index-backed `ILIKE` query over 20,001 synthetic rows against the disposable
-Supabase PostgreSQL 17 stack. It has not run yet. PostgreSQL documents the
+Supabase PostgreSQL 17 stack. The first hosted PR run failed earlier at `npm
+ci`, before reaching this check. PostgreSQL documents the
 `LIKE`/`ILIKE` support for trigram GIN indexes in
 [pg_trgm](https://www.postgresql.org/docs/17/pgtrgm.html); Supabase documents
 `pg_trgm` as an available extension in its
@@ -379,6 +380,9 @@ ordinary B-tree indexes are created without `IF NOT EXISTS`.
 The GitHub workflow covers unit/PGlite, typecheck/lint, isolated Supabase
 startup/readiness, migration reset, PostgreSQL 17 `pg_trgm` checks, pgTAP, Auth
 and PostgREST isolation, and Playwright. It writes a step summary with the job
-status and run URL and redacts startup diagnostics. It remains pending until
-pushed and dispatched from GitHub. No hosted run or restored-source rehearsal
-is available; Phase 4 remains PARTIAL.
+status and run URL and redacts startup diagnostics. Hosted run `42371442520`
+was triggered by PR #1 but stopped at `npm ci` because the lockfile was missing
+`@emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3`. The lockfile fix was
+generated with npm 10.9.4; a real clean install, all 344 tests, lint, typecheck,
+and build pass locally. The fix is not yet pushed, so the hosted run must be
+repeated. No restored-source rehearsal is available; Phase 4 remains PARTIAL.
