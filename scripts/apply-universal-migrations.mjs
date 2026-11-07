@@ -35,7 +35,7 @@ export async function applyUniversalMigrations(client, {
         (select rolsuper from pg_roles where rolname = current_user) as is_superuser,
         has_database_privilege(current_user, current_database(), 'CREATE') as can_create_schemas,
         has_schema_privilege(current_user, 'public', 'CREATE') as can_create_public_objects,
-        has_schema_privilege(current_user, 'extensions', 'CREATE') as can_install_extensions,
+        coalesce((select has_schema_privilege(current_user, oid, 'CREATE') from pg_namespace where nspname = 'extensions'), false) as can_install_extensions,
         to_regclass('auth.users') is not null as has_auth_users,
         to_regprocedure('auth.uid()') is not null as has_auth_uid,
         exists (select 1 from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'email_confirmed_at') as has_confirmed_email,
