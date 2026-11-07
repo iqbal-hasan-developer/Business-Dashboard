@@ -33,12 +33,17 @@ export async function applyUniversalMigrations(client, {
     const { rows: targetRows } = await client.query(
       `select current_database() as database_name,
         (select rolsuper from pg_roles where rolname = current_user) as is_superuser,
+        has_database_privilege(current_user, current_database(), 'CREATE') as can_create_schemas,
+        has_schema_privilege(current_user, 'public', 'CREATE') as can_create_public_objects,
+        has_schema_privilege(current_user, 'extensions', 'CREATE') as can_install_extensions,
         to_regclass('auth.users') is not null as has_auth_users,
         to_regprocedure('auth.uid()') is not null as has_auth_uid,
         exists (select 1 from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'email_confirmed_at') as has_confirmed_email,
         (select count(*) = 3 from pg_roles where rolname = any(array['anon', 'authenticated', 'service_role'])) as has_supabase_roles`,
     );
-    if (!targetRows[0]?.is_superuser) throw new Error("The local migration database role must own schema objects and migrations.");
+    if (!targetRows[0]?.is_superuser && (!targetRows[0]?.can_create_schemas || !targetRows[0]?.can_create_public_objects || !targetRows[0]?.can_install_extensions)) {
+      throw new Error("The local migration role must be a superuser or have CREATE privileges on this database and the public and extensions schemas.");
+    }
     if (!targetRows[0]?.has_auth_users || !targetRows[0]?.has_auth_uid || !targetRows[0]?.has_confirmed_email || !targetRows[0]?.has_supabase_roles) {
       throw new Error("The local database must have Supabase Auth users, confirmed-email fields, auth.uid(), and API roles initialized before migrations.");
     }
