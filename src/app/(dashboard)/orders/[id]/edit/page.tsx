@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { EditOrderForm } from "@/components/orders/new-order-form";
 import { PageHeading } from "@/components/page-heading";
@@ -12,6 +12,7 @@ import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
 
 export default async function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  if (resolveBusinessDataProvider() === "supabase") redirect("/orders");
   const { id } = await params;
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
   const [order, products, settings] = await Promise.all([

@@ -5,12 +5,33 @@ import { getBusinessRepository } from "@/data/provider";
 import { formatMoney } from "@/domain/money";
 import type { Money } from "@/domain/types";
 import { requireDashboardUser } from "@/lib/auth/session";
+import { resolveBusinessDataProvider } from "@/lib/supabase/env";
+import { getCurrentWorkspaceReportingMetrics } from "@/data/universal-workspace";
+import { dhakaBusinessDate, resolveReportingPeriod } from "@/domain/reporting-period";
+import { WorkspaceReportsPage } from "@/components/workspaces/workspace-commerce-pages";
 
 function optionalMoney(value: Money | null) {
   return value === null ? "Incomplete cost data" : formatMoney(value);
 }
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  if (resolveBusinessDataProvider() === "supabase") {
+    const params = await searchParams;
+    const today = dhakaBusinessDate();
+    const defaults = resolveReportingPeriod(today, "30d");
+    const requestedStart = typeof params.start === "string" ? params.start : defaults.startDate;
+    const requestedEnd = typeof params.end === "string" ? params.end : today;
+    const isDate = (date: string) => {
+      const timestamp = Date.parse(`${date}T00:00:00Z`);
+      return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === date;
+    };
+    const rangeInvalid = !isDate(requestedStart) || !isDate(requestedEnd) || requestedStart > requestedEnd || requestedEnd > today
+      || (Date.parse(`${requestedEnd}T00:00:00Z`) - Date.parse(`${requestedStart}T00:00:00Z`)) / 86_400_000 > 366;
+    const startDate = rangeInvalid ? defaults.startDate : requestedStart;
+    const endDate = rangeInvalid ? today : requestedEnd;
+    const report = await getCurrentWorkspaceReportingMetrics(startDate, endDate);
+    return <WorkspaceReportsPage metrics={report.metrics} startDate={startDate} endDate={endDate} role={report.session.activeWorkspace.role} error={rangeInvalid ? "Choose valid dates within the last 367 calendar days." : undefined} />;
+  }
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
   const data = await repository.getDashboard();
   const metrics = [

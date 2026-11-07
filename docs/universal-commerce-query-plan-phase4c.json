@@ -1,0 +1,245 @@
+{
+  "engine": "PGlite PostgreSQL 18.6; not Supabase PostgreSQL 17",
+  "dataset": {
+    "workspaces": 4,
+    "rowsPerWorkspacePerEntity": 4000,
+    "entities": [
+      "products",
+      "variants",
+      "inventory levels",
+      "customers",
+      "orders",
+      "order items",
+      "expenses"
+    ],
+    "rowsPerEntity": 16000
+  },
+  "measurements": [
+    {
+      "name": "product page",
+      "workspaceScoped": true,
+      "query": "select id,name from public.workspace_product_stock where workspace_id=$1 order by updated_at desc,id limit 25",
+      "returnedRows": 25,
+      "measuredMs": 17.129,
+      "explainAnalyzeMs": 30.932,
+      "plan": {
+        "node": "Limit",
+        "relation": null,
+        "planRows": 25,
+        "actualRows": 25,
+        "indexScans": [
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          },
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "product exact count",
+      "workspaceScoped": true,
+      "query": "select count(*)::bigint from public.workspace_product_stock where workspace_id=$1",
+      "returnedRows": 1,
+      "measuredMs": 12.812,
+      "explainAnalyzeMs": 24.945,
+      "plan": {
+        "node": "Aggregate",
+        "relation": null,
+        "planRows": 1,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          },
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "product substring search",
+      "workspaceScoped": true,
+      "query": "select id from public.workspace_product_stock where workspace_id=$1 and (name ilike '%raresearchtoken%' or sku ilike '%raresearchtoken%')",
+      "returnedRows": 1,
+      "measuredMs": 16.561,
+      "explainAnalyzeMs": 25.807,
+      "plan": {
+        "node": "Subquery Scan",
+        "relation": null,
+        "planRows": 1,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          },
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "product SKU lookup",
+      "workspaceScoped": true,
+      "query": "select id from public.products where workspace_id=$1 and sku='SKU-2000'",
+      "returnedRows": 1,
+      "measuredMs": 0.501,
+      "explainAnalyzeMs": 0.017,
+      "plan": {
+        "node": "Index Scan",
+        "relation": "products",
+        "planRows": 1,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "products_workspace_sku_idx",
+            "type": "Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "order substring search",
+      "workspaceScoped": true,
+      "query": "select id from public.orders where workspace_id=$1 and (order_number ilike '%raresearchtoken%' or customer_name_snapshot ilike '%raresearchtoken%')",
+      "returnedRows": 1,
+      "measuredMs": 7.026,
+      "explainAnalyzeMs": 6.034,
+      "plan": {
+        "node": "Bitmap Heap Scan",
+        "relation": "orders",
+        "planRows": 2,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "orders_workspace_placed_at_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "customer substring search",
+      "workspaceScoped": true,
+      "query": "select id from public.customers where workspace_id=$1 and (full_name ilike '%raresearchtoken%' or email ilike '%raresearchtoken%' or phone ilike '%raresearchtoken%')",
+      "returnedRows": 1,
+      "measuredMs": 9.686,
+      "explainAnalyzeMs": 10.187,
+      "plan": {
+        "node": "Bitmap Heap Scan",
+        "relation": "customers",
+        "planRows": 2,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "customers_workspace_last_seen_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "inventory state/category/quantity page",
+      "workspaceScoped": true,
+      "query": "select id from public.workspace_inventory_stock where workspace_id=$1 and stock_status='low_stock' and category='category-0' and stock_quantity between 0 and 2 order by stock_quantity,id limit 25",
+      "returnedRows": 25,
+      "measuredMs": 7.301,
+      "explainAnalyzeMs": 7.266,
+      "plan": {
+        "node": "Limit",
+        "relation": null,
+        "planRows": 1,
+        "actualRows": 25,
+        "indexScans": [
+          {
+            "name": "products_workspace_category_idx",
+            "type": "Bitmap Index Scan"
+          },
+          {
+            "name": "inventory_levels_workspace_variant_filter_idx",
+            "type": "Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "customer order-count page",
+      "workspaceScoped": true,
+      "query": "select id,order_count from public.workspace_customer_order_counts where workspace_id=$1 and order_count between 1 and 3 order by created_at desc,id limit 25",
+      "returnedRows": 25,
+      "measuredMs": 8.842,
+      "explainAnalyzeMs": 15.146,
+      "plan": {
+        "node": "Limit",
+        "relation": null,
+        "planRows": 20,
+        "actualRows": 25,
+        "indexScans": []
+      }
+    },
+    {
+      "name": "expense date/category page",
+      "workspaceScoped": true,
+      "query": "select id from public.expenses where workspace_id=$1 and category='category-1' and expense_date between current_date-30 and current_date order by expense_date desc,id limit 25",
+      "returnedRows": 25,
+      "measuredMs": 1.36,
+      "explainAnalyzeMs": 0.141,
+      "plan": {
+        "node": "Limit",
+        "relation": null,
+        "planRows": 25,
+        "actualRows": 25,
+        "indexScans": [
+          {
+            "name": "expenses_workspace_date_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "expense exact count",
+      "workspaceScoped": true,
+      "query": "select count(*)::bigint from public.expenses where workspace_id=$1 and category='category-1' and expense_date between current_date-30 and current_date",
+      "returnedRows": 1,
+      "measuredMs": 0.467,
+      "explainAnalyzeMs": 0.121,
+      "plan": {
+        "node": "Aggregate",
+        "relation": null,
+        "planRows": 1,
+        "actualRows": 1,
+        "indexScans": [
+          {
+            "name": "expenses_workspace_date_idx",
+            "type": "Bitmap Index Scan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dashboard order aggregate",
+      "workspaceScoped": true,
+      "query": "select count(*)::bigint as order_count,coalesce(sum(total),0)::numeric as gross_total from public.orders where workspace_id=$1",
+      "returnedRows": 1,
+      "measuredMs": 3.23,
+      "explainAnalyzeMs": 3.935,
+      "plan": {
+        "node": "Aggregate",
+        "relation": null,
+        "planRows": 1,
+        "actualRows": 1,
+        "indexScans": []
+      }
+    }
+  ]
+}

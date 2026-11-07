@@ -9,8 +9,14 @@ import { summarizeExpenseAccounting } from "@/domain/procurement";
 import { dhakaBusinessDate } from "@/domain/reporting-period";
 import { requireDashboardUser } from "@/lib/auth/session";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
+import { getCurrentWorkspaceCommerceData } from "@/data/universal-workspace";
+import { WorkspaceExpensesPage } from "@/components/workspaces/workspace-commerce-pages";
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  if (resolveBusinessDataProvider() === "supabase") {
+    const params = await searchParams;
+    return <WorkspaceExpensesPage data={await getCurrentWorkspaceCommerceData({ list: "expenses", ...params })} />;
+  }
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
   const [expenses, campaigns, marketing, audit, settings] = await Promise.all([
     repository.getExpenses(),

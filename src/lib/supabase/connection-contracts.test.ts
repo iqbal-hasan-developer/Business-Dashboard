@@ -26,9 +26,14 @@ describe("development Supabase connection contracts", () => {
     expect(source).not.toContain("decrement_product_stock");
     const rpcNames = [...new Set([...source.matchAll(/\.rpc\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]))].sort();
     expect(rpcNames).toEqual([
+      "accept_workspace_invitation",
+      "adjust_workspace_inventory",
+      "archive_workspace_product",
       "classify_historical_financial_source",
       "create_dashboard_order",
       "create_dashboard_product",
+      "create_workspace",
+      "create_workspace_order",
       "delete_dashboard_ad_spend",
       "delete_dashboard_expense",
       "edit_dashboard_ad_spend",
@@ -39,6 +44,8 @@ describe("development Supabase connection contracts", () => {
       "get_dashboard_financial_summary",
       "get_dashboard_procurement_summary",
       "get_dashboard_product_financials",
+      "invite_workspace_member",
+      "list_workspace_members",
       "pay_unpaid_financial_source",
       "record_cash_account_balance_observation",
       "record_customer_payment_receipt",
@@ -51,20 +58,29 @@ describe("development Supabase connection contracts", () => {
       "record_owner_money_taken",
       "record_steadfast_cod_settlement_v4",
       "record_steadfast_receivable_observation",
+      "record_workspace_refund",
       "reverse_dashboard_cash_movement",
       "reverse_financial_source_funding",
       "reverse_owner_capital_return_from_held",
       "reverse_owner_held_fund_transfer",
       "reverse_owner_money_taken",
       "reverse_steadfast_cod_settlement",
+      "save_workspace_customer_notes",
+      "save_workspace_expense",
+      "save_workspace_product",
       "set_product_buying_cost",
+      "set_workspace_order_status",
       "transition_dashboard_order",
       "update_business_financial_defaults",
       "update_dashboard_campaign_performance",
       "update_dashboard_order",
       "update_dashboard_product",
       "upsert_campaign",
+      "workspace_reporting_metrics",
     ]);
+    for (const rpc of ["remove_workspace_member", "revoke_workspace_invitation", "set_workspace_member_role", "transfer_workspace_ownership"]) {
+      expect(source).toContain(`"${rpc}"`);
+    }
     expect(source).not.toMatch(/record_dashboard_(refund|return)/i);
     expect(source).not.toMatch(/\.update\s*\([^)]*stock/i);
   });
@@ -74,13 +90,14 @@ describe("development Supabase connection contracts", () => {
     expect(appRoutes).not.toContain("PrototypeAction");
   });
 
-  it("authorizes the active JWT profile before private repository access", () => {
+  it("authorizes active workspace membership before private workspace access", () => {
     expect(protectedLayout).toContain("requireDashboardUser");
     expect(provider.indexOf("await requireDashboardUser()"))
       .toBeLessThan(provider.indexOf("new SupabaseBusinessRepository"));
-    expect(loginAction).toContain('from("dashboard_user_profiles")');
-    expect(loginAction).toContain("resolveDashboardUser");
+    expect(loginAction).toContain('.from("workspace_memberships")');
     expect(loginAction).toContain("await supabase.auth.signOut()");
+    expect(source).toContain("active_workspace_id");
+    expect(source).toContain("requireWorkspaceSession");
   });
 
   it("does not embed connected-dashboard prototype trends or stale timestamps", () => {

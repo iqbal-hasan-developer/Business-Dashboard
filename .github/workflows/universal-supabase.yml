@@ -1,0 +1,96 @@
+name: Universal Supabase tenant checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/universal/**"
+      - "src/actions/workspaces.ts"
+      - "src/actions/workspace-commerce.ts"
+      - "src/app/(dashboard)/**"
+      - "src/app/exports/**"
+      - "src/components/workspaces/**"
+      - "src/components/app-shell.tsx"
+      - "src/data/universal-workspace.ts"
+      - "src/domain/workspace-overview.ts"
+      - "src/lib/auth/workspace-session.ts"
+      - "scripts/test-universal-postgrest.mjs"
+      - "scripts/test-universal-application.mjs"
+      - "scripts/wait-universal-supabase.mjs"
+      - "scripts/redact-supabase-start-log.mjs"
+      - "scripts/apply-universal-migrations.mjs"
+      - "scripts/migrate-legacy-workspace.mjs"
+      - "scripts/check-universal-pg-trgm-plan.mjs"
+      - "scripts/benchmark-universal-lists.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "supabase/universal/config.toml"
+      - "tests/database/**"
+      - "tests/e2e/universal-workspaces.spec.ts"
+      - "playwright.universal.config.ts"
+      - ".github/workflows/universal-supabase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tenant-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.106.0
+      - run: npm ci
+      - name: Verify unit, contract, and embedded database suites
+        run: npm test
+      - name: Verify TypeScript and lint
+        run: npm run typecheck && npm run lint
+      - name: Start isolated Supabase stack
+        shell: bash
+        run: |
+          startup_log="$RUNNER_TEMP/universal-supabase-start.log"
+          if ! supabase start --workdir supabase/universal --exclude studio,edge-runtime,storage,imgproxy,analytics,vector,realtime,functions,meta >"$startup_log" 2>&1; then
+            echo "Supabase startup failed. Safe diagnostics follow; service keys and tokens are omitted."
+            node scripts/redact-supabase-start-log.mjs "$startup_log"
+            exit 1
+          fi
+      - name: Wait for local Auth and PostgREST readiness
+        run: node scripts/wait-universal-supabase.mjs
+      - name: Apply fresh schema
+        shell: bash
+        run: |
+          db_url="$(supabase status --workdir supabase/universal --output json | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => process.stdout.write(JSON.parse(input).DB_URL));')"
+          UNIVERSAL_DATABASE_URL="$db_url" node scripts/apply-universal-migrations.mjs
+      - name: Verify PostgreSQL 17 pg_trgm indexes and query plan
+        run: npm run check:universal:pg-trgm
+      - name: Run PostgreSQL RLS tests
+        run: supabase test db --workdir supabase/universal --local tests/database
+      - name: Verify Supabase Auth and PostgREST isolation
+        run: node scripts/test-universal-postgrest.mjs
+      - name: Install browser for workspace flow
+        run: npx playwright install --with-deps chromium
+      - name: Verify application registration and workspace access
+        run: node scripts/test-universal-application.mjs
+      - name: Summarize hosted verification result
+        if: always()
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "## Universal Supabase tenant checks"
+            echo "- Result: **$JOB_STATUS**"
+            echo "- Branch: \`$GITHUB_REF_NAME\`"
+            echo "- Run: [$GITHUB_RUN_ID]($run_url)"
+            echo "- Required coverage: PostgreSQL 17 migrations/RLS, pg_trgm index plan, Supabase Auth/PostgREST, Playwright workspace flow."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Stop isolated Supabase stack
+        if: always()
+        run: supabase stop --workdir supabase/universal --no-backup

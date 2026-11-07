@@ -11,8 +11,8 @@ test.describe("fail-closed dashboard authentication", () => {
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login\?.*next=%2Fdashboard/);
-    await expect(page.getByRole("img", { name: "NexaNotion" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Business Dashboard" })).toBeVisible();
+    await expect(page.getByText("Commerce Operations", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);

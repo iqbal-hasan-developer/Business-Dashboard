@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/app-providers";
+import { productName } from "@/lib/product";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "NexaNotion Business", template: "%s · NexaNotion Business" },
-  description: "Private operations and finance dashboard for NexaNotion.",
+  title: { default: productName, template: `%s · ${productName}` },
+  description: "A self-hosted workspace for managing commerce operations.",
 };
 
 export default function RootLayout({

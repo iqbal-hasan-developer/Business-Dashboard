@@ -87,8 +87,9 @@ describe("manual-entry RPC repository", () => {
     const combined = `${repository}\n${actions}`;
     expect(repository.match(/client\.rpc\(/g)).toHaveLength(9);
     expect(combined).not.toMatch(/service[_-]?role|\.from\s*\(|decrement_product_stock|inventory|record_dashboard_refund|record_dashboard_return/i);
-    expect(actions).toContain("requireDashboardUser()");
-    expect(actions).toContain("resolveBusinessDataProvider() !== \"supabase\"");
+    expect(actions).toContain("resolveBusinessDataProvider() === \"supabase\"");
+    expect(actions).toContain("unavailable in workspace mode");
+    expect(actions).not.toContain("requireDashboardUser()");
     expect(actions).toContain("revalidatePath(path)");
   });
 });
