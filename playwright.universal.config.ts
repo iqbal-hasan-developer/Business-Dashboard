@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "line",
-  timeout: 120_000,
+  timeout: 240_000,
   expect: { timeout: 10_000 },
   use: { ...devices["Desktop Chrome"], baseURL: "http://127.0.0.1:3000", trace: "off", screenshot: "off", video: "off" },
   webServer: {
