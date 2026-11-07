@@ -34,7 +34,6 @@ vi.mock("@/data/manual-entry-writes", () => ({
 }));
 
 import { createOrderAction, recordExpenseAction, saveProductAction, updateOrderAction, updateOrderStatusesAction } from "@/actions/manual-entry";
-import { toManualOrderEditValues } from "@/domain/manual-entry";
 
 const order: ManualOrderValues = {
   orderNumber: "NNM-20260719-001", externalReference: "", orderDate: "2026-07-19", customerName: "Customer",
@@ -61,16 +60,11 @@ describe("manual-entry server actions", () => {
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
-  it("uses the authenticated client once and revalidates affected order pages", async () => {
-    const client = { rpc: vi.fn() };
-    mocks.createClient.mockResolvedValue(client);
-    mocks.createOrder.mockResolvedValue("82400000-0000-4000-8000-000000000001");
+  it("blocks legacy order writes in workspace mode", async () => {
     const result = await createOrderAction(order);
-    expect(result).toMatchObject({ ok: true, recordId: "82400000-0000-4000-8000-000000000001" });
-    expect(mocks.createOrder).toHaveBeenCalledOnce();
-    expect(mocks.createOrder).toHaveBeenCalledWith(client, order);
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/orders");
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard");
+    expect(result).toEqual({ ok: false, message: "This legacy action is unavailable in workspace mode. Use the workspace-scoped control." });
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
   it("keeps data-entry users from changing payment or settlement through this owner slice", async () => {
@@ -85,32 +79,25 @@ describe("manual-entry server actions", () => {
     expect(mocks.updateStatuses).not.toHaveBeenCalled();
   });
 
-  it("returns a safe duplicate-order message", async () => {
+  it("does not run the legacy duplicate-order path in workspace mode", async () => {
     mocks.createOrder.mockRejectedValue({ code: "23505", message: "constraint details" });
     const result = await createOrderAction(order);
-    expect(result).toEqual({ ok: false, message: "That order number already exists. Use a unique order number." });
+    expect(result.ok).toBe(false);
+    expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
-  it("updates an eligible order once through the authenticated owner client", async () => {
-    const client = { rpc: vi.fn() };
-    mocks.createClient.mockResolvedValue(client);
-    const values = toManualOrderEditValues(order, "82400000-0000-4000-8000-000000000001", "2026-07-22T10:00:00+00:00");
-    mocks.updateOrder.mockResolvedValue(values.orderId);
-    const result = await updateOrderAction(values);
-    expect(result).toMatchObject({ ok: true, recordId: values.orderId });
-    expect(mocks.updateOrder).toHaveBeenCalledOnce();
-    expect(mocks.updateOrder).toHaveBeenCalledWith(client, values);
-    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/orders/${values.orderId}`);
-  });
-
-  it("fails edit closed for data-entry users and preserves a safe stale-edit error", async () => {
-    const values = toManualOrderEditValues(order, "82400000-0000-4000-8000-000000000001", "2026-07-22T10:00:00+00:00");
-    mocks.requireUser.mockResolvedValue({ id: "u2", email: "entry@example.invalid", displayName: "Entry", role: "data_entry" });
-    expect((await updateOrderAction(values)).ok).toBe(false);
+  it("blocks legacy order updates in workspace mode", async () => {
+    const result = await updateOrderAction({ orderId: "82400000-0000-4000-8000-000000000001" });
+    expect(result.ok).toBe(false);
     expect(mocks.updateOrder).not.toHaveBeenCalled();
-    mocks.requireUser.mockResolvedValue({ id: "u1", email: "owner@example.invalid", displayName: "Owner", role: "owner" });
-    mocks.updateOrder.mockRejectedValue({ code: "40001", message: "private details" });
-    expect((await updateOrderAction(values)).message).toMatch(/changed after you opened/);
+  });
+
+  it("blocks legacy product and expense writes in workspace mode", async () => {
+    const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
+    const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "unpaid", paymentDate: "", businessAccountKey: "", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000092" });
+    expect(product.ok).toBe(false); expect(expense.ok).toBe(false);
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.createProduct).not.toHaveBeenCalled(); expect(mocks.recordExpense).not.toHaveBeenCalled();
   });
 
   it("fails product and expense writes closed in mock mode", async () => {
@@ -121,16 +108,10 @@ describe("manual-entry server actions", () => {
     expect(mocks.createProduct).not.toHaveBeenCalled(); expect(mocks.recordExpense).not.toHaveBeenCalled();
   });
 
-  it("uses the owner JWT client for product and expense writes and revalidates their pages", async () => {
-    const client = { rpc: vi.fn() }; mocks.createClient.mockResolvedValue(client);
-    mocks.createProduct.mockResolvedValue("82100000-0000-4000-8000-000000000001");
-    mocks.recordExpense.mockResolvedValue("82200000-0000-4000-8000-000000000001");
+  it("blocks the remaining legacy action family in workspace mode", async () => {
     const product = await saveProductAction({ name: "Planner", slug: "planner", publicSku: "PUB-1", sellingPrice: "100", isActive: true, categoryId: null, buyingPrice: "50", reorderLevel: 0, dashboardSku: "", variation: "", internalNotes: "" });
     const expense = await recordExpenseAction({ expenseDate: "2026-07-19", categoryKey: "operations", description: "Packing", amount: "10", paymentMethod: "", campaignId: null, salesChannel: "", reference: "", fundingTreatment: "business_account_paid", paymentDate: "2026-07-19", businessAccountKey: "cash", ownerLabel: "", submissionKey: "00000000-0000-4000-8000-000000000092" });
-    expect(product.ok).toBe(true); expect(expense.ok).toBe(true);
-    expect(mocks.createProduct).toHaveBeenCalledWith(client, expect.objectContaining({ publicSku: "PUB-1" }));
-    expect(mocks.recordExpense).toHaveBeenCalledWith(client, expect.objectContaining({ amount: "10" }));
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/expenses");
+    expect(product.ok).toBe(false); expect(expense.ok).toBe(false);
+    expect(mocks.saveCampaign).not.toHaveBeenCalled(); expect(mocks.recordAdSpend).not.toHaveBeenCalled();
   });
 });

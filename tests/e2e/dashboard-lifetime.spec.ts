@@ -9,7 +9,7 @@ test("dashboard defaults to lifetime and keeps the scope bookmarkable", async ({
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto("/dashboard");
-  await expect(page).toHaveTitle(/NexaNotion Business/);
+  await expect(page).toHaveTitle("Commerce Operations");
   await expect(page.getByRole("heading", { name: "Business overview" })).toBeVisible();
   await expect(page.getByRole("combobox").first()).toContainText("Lifetime");
   await expect(page.getByText("No prior-period data", { exact: true })).toBeVisible();

@@ -5,8 +5,14 @@ import { ProductsTable } from "@/components/products/products-table";
 import { getBusinessRepository } from "@/data/provider";
 import { requireDashboardUser } from "@/lib/auth/session";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
+import { getCurrentWorkspaceCommerceData } from "@/data/universal-workspace";
+import { WorkspaceProductsPage } from "@/components/workspaces/workspace-commerce-pages";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  if (resolveBusinessDataProvider() === "supabase") {
+    const params = await searchParams;
+    return <WorkspaceProductsPage data={await getCurrentWorkspaceCommerceData({ list: "products", ...params })} />;
+  }
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
   const [products, categories] = await Promise.all([repository.getProducts(), repository.getProductCategories()]);
   const canEditPrivateData = resolveBusinessDataProvider() === "supabase" && ["owner", "admin"].includes(user.role);

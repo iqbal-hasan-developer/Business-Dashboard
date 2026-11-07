@@ -7,8 +7,13 @@ import { getBusinessRepository } from "@/data/provider";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { dhakaBusinessDate } from "@/domain/reporting-period";
 import { requireDashboardUser } from "@/lib/auth/session";
+import { getCurrentWorkspaceCommerceData } from "@/data/universal-workspace";
+import { WorkspaceNewOrderPage } from "@/components/workspaces/workspace-commerce-pages";
 
 export default async function NewOrderPage() {
+  if (resolveBusinessDataProvider() === "supabase") {
+    return <WorkspaceNewOrderPage data={await getCurrentWorkspaceCommerceData()} />;
+  }
   const [repository, user] = await Promise.all([getBusinessRepository(), requireDashboardUser()]);
   const [products, orders, settings] = await Promise.all([repository.getProducts(), repository.getOrders(), repository.getBusinessSettings()]);
   const persistenceEnabled = resolveBusinessDataProvider() === "supabase" && ["owner", "admin", "data_entry"].includes(user.role);

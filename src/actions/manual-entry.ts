@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { can } from "@/lib/auth/authorization";
-import { requireDashboardUser } from "@/lib/auth/session";
 import { resolveBusinessDataProvider } from "@/lib/supabase/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -44,7 +42,7 @@ function revalidate(paths: string[]) { paths.forEach((path) => revalidatePath(pa
 export async function saveProductAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = productCatalogSchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite(parsed.data.productId ? "update" : "create", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const productId = parsed.data.productId
@@ -60,7 +58,7 @@ export async function saveProductAction(input: unknown): Promise<ManualEntryActi
 export async function recordExpenseAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = expenseEntrySchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("create", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const recordId = await recordExpenseEntry(boundary.client, parsed.data);
@@ -72,7 +70,7 @@ export async function recordExpenseAction(input: unknown): Promise<ManualEntryAc
 export async function saveCampaignAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = campaignEntrySchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite(parsed.data.campaignId ? "update" : "create", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const recordId = await upsertCampaignEntry(boundary.client, parsed.data);
@@ -84,7 +82,7 @@ export async function saveCampaignAction(input: unknown): Promise<ManualEntryAct
 export async function recordAdSpendAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = adSpendEntrySchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("create", ["owner", "admin", "data_entry"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const recordId = await recordAdSpendEntry(boundary.client, parsed.data);
@@ -97,21 +95,21 @@ function validationResult(error: { flatten(): { fieldErrors: Record<string, stri
   return { ok: false, message: "Review the highlighted values and try again.", fieldErrors: error.flatten().fieldErrors };
 }
 
-async function requirePersistentWrite(permission: "create" | "update", roles?: readonly string[]) {
-  if (resolveBusinessDataProvider() !== "supabase") {
-    return { error: { ok: false, message: "Persistent writes are unavailable in isolated mock mode." } as ManualEntryActionResult };
-  }
-  const user = await requireDashboardUser();
-  if (!can(user.role, permission) || (roles && !roles.includes(user.role))) {
-    return { error: { ok: false, message: "Your dashboard role is not allowed to perform this update." } as ManualEntryActionResult };
-  }
-  return { client: await createServerSupabaseClient() };
+type PersistentWriteBoundary =
+  | { error: ManualEntryActionResult; client?: never }
+  | { error?: never; client: Awaited<ReturnType<typeof createServerSupabaseClient>> };
+
+async function requirePersistentWrite(): Promise<PersistentWriteBoundary> {
+  const message = resolveBusinessDataProvider() === "supabase"
+    ? "This legacy action is unavailable in workspace mode. Use the workspace-scoped control."
+    : "Persistent writes are unavailable in isolated mock mode.";
+  return { error: { ok: false, message } as ManualEntryActionResult };
 }
 
 export async function createOrderAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = manualOrderSchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("create", ["owner", "admin", "data_entry"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const orderId = await createManualOrder(boundary.client, parsed.data);
@@ -127,7 +125,7 @@ export async function createOrderAction(input: unknown): Promise<ManualEntryActi
 export async function updateOrderAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = manualOrderEditSchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("update", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const orderId = await updateManualOrder(boundary.client, parsed.data);
@@ -143,7 +141,7 @@ export async function updateOrderAction(input: unknown): Promise<ManualEntryActi
 export async function updateOrderStatusesAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = orderTransitionSchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("update", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     await updateManualOrderStatuses(boundary.client, parsed.data);
@@ -159,7 +157,7 @@ export async function updateOrderStatusesAction(input: unknown): Promise<ManualE
 export async function updateProductBusinessAction(input: unknown): Promise<ManualEntryActionResult> {
   const parsed = productBusinessSchema.safeParse(input);
   if (!parsed.success) return validationResult(parsed.error);
-  const boundary = await requirePersistentWrite("update", ["owner", "admin"]);
+  const boundary = await requirePersistentWrite();
   if (boundary.error) return boundary.error;
   try {
     const productId = await updateProductBusinessData(boundary.client, parsed.data);

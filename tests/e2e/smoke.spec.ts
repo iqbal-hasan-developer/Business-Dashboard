@@ -22,7 +22,7 @@ for (const route of routes) {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     await page.goto(route.path);
-    await expect(page.getByRole("img", { name: "NexaNotion" }).filter({ visible: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Commerce Operations dashboard" }).filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
@@ -35,7 +35,7 @@ test("order filters and new-order calculations work", async ({ page }) => {
   await page.getByPlaceholder("Search orders").fill("Nusrat");
   await expect(page).toHaveURL(/q=Nusrat/);
   await page.goto("/orders/new");
-  await expect(page.getByText("Live financial summary")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Live financial summary", exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText("৳580").first()).toBeVisible();
 });
 
@@ -93,6 +93,6 @@ test("dashboard expense chart includes filtered advertising spend", async ({ pag
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
   await chartHeading.scrollIntoViewIfNeeded();
-  const screenshotPath = `${process.env.TEMP?.replaceAll("\\", "/") ?? "C:/Windows/Temp"}/nexanotion-expense-ad-spend-${testInfo.project.name}.png`;
+  const screenshotPath = `${process.env.TEMP?.replaceAll("\\", "/") ?? "C:/Windows/Temp"}/commerce-expense-ad-spend-${testInfo.project.name}.png`;
   await page.screenshot({ path: screenshotPath, fullPage: false });
 });

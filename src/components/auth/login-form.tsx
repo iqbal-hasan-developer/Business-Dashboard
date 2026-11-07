@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { KeyRound, Sparkles } from "lucide-react";
 import { signIn, type LoginState } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const initialState: LoginState = {};
 
-const DEMO_EMAIL = "demo@nexanotion.online";
+const DEMO_EMAIL = "demo@example.invalid";
 const DEMO_PASSWORD = "DemoUser2026!";
 
-export function LoginForm() {
+export function LoginForm({ allowRegistration = false }: { allowRegistration?: boolean }) {
   const searchParams = useSearchParams();
   const [state, action, pending] = useActionState(signIn, initialState);
   const [email, setEmail] = useState("");
@@ -93,6 +94,7 @@ export function LoginForm() {
           {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+      {allowRegistration ? <p className="text-center text-sm text-muted-foreground">New here? <Link className="font-medium text-primary underline-offset-4 hover:underline" href="/register">Create an account</Link></p> : null}
     </div>
   );
 }

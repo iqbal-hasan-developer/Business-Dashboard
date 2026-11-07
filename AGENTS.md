@@ -1,119 +1,66 @@
-# NexaNotion Business Dashboard
+# Commerce Operations development guide
 
-## Required project context
+## Product direction
 
-Before planning or implementing a phase, read:
+Transform this repository into an independent, self-hosted, multi-tenant
+commerce operations SaaS. Each installation has one product identity and may
+serve multiple workspaces, stores, and users. Do not depend on the original
+business owner's infrastructure, credentials, or accounts.
 
-- `NexaNotion-Business-Dashboard-Development-Plan.md`
+Read `docs/universal-commerce-technical-audit.md` and
+`docs/universal-commerce-development-checklist.md` before planning a new phase.
+Update the checklist as evidence is produced; do not mark unimplemented work as
+complete.
 
-Follow the approved phases, architecture, business rules, responsibilities, and production-readiness criteria defined in that document.
+## Stack and architecture
 
-## Project locations
+- Preserve Next.js App Router, TypeScript, Tailwind, and Supabase unless a
+  documented technical reason requires a change.
+- Keep domain logic, repository access, server actions, and UI responsibilities
+  separated using the existing `src/domain`, `src/data`, `src/actions`, and
+  `src/components` boundaries.
+- Validate all untrusted input with Zod and keep private database access on the
+  server.
+- Use exact numeric money and transaction snapshots for financial history.
+- Preserve immutable financial evidence and audited correction workflows.
+- The existing `supabase/migrations` chain is for a legacy single-business
+  schema. Never present it as a fresh-install schema. Put any replacement chain
+  in a clearly separated path and document which installer uses it.
 
-Dashboard project:
+## Security and data boundaries
 
-`C:\Users\Iqbal\OneDrive\Desktop\Business-Dashboard`
+- Every tenant-owned record, query, mutation, export, and background job must be
+  scoped to an authorized workspace.
+- Enforce access in database policies/RPCs and server code; hidden UI controls do
+  not provide authorization.
+- Never expose service-role keys, encrypted integration credentials, or raw
+  secrets in client code, logs, fixtures, screenshots, or documentation.
+- Use fictional sample data only. Never distribute the legacy business's orders,
+  customers, financial history, credentials, identifiers, or operational exports.
+- Treat integrations as read-only until a specific write workflow is reviewed
+  and enabled. Preserve external platform metadata and never overwrite external
+  data unexpectedly.
+- Do not access or modify production databases, external storefront repositories,
+  hosting accounts, DNS, or external services unless the user separately
+  authorizes that action.
 
-Existing NexaNotion website:
+## Development checks
 
-`C:\Users\Iqbal\OneDrive\Desktop\Web development\Next JS Projects\NexaNotion`
+Use npm and the versions pinned in `package-lock.json`. Read the installed Next.js
+guides in `node_modules/next/dist/docs/` before changing framework APIs. Run the
+lint, typecheck, unit, browser, database, and build checks relevant to the change.
+Report checks that cannot run and distinguish static contracts from live
+integration verification.
 
-The existing NexaNotion repository is read-only unless the user explicitly authorizes changes to it.
+## Product status
 
-## Technology direction
-
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- Supabase Auth and PostgreSQL
-- Recharts
-- Zod
-- Vercel
-
-Confirm the existing versions, package manager, and dependencies before installing or upgrading packages.
-
-## Working rules
-
-- Work only on the currently approved phase and scope.
-- Inspect applicable instructions and existing files before editing.
-- Preserve user changes and unrelated files.
-- Do not use destructive Git or filesystem commands unless explicitly requested.
-- Use versioned, reviewable Supabase migrations for schema changes.
-- Never print, commit, or expose secret environment-variable values.
-- Never expose the Supabase service-role key to client-side code.
-- Do not modify the production Supabase project without explicit approval.
-- Treat Supabase as the production source of truth after migration.
-- Treat Google Sheets as an import, export, archive, or backup surface—not a second independently editable production database.
-- Keep Order Status and Settlement Status separate.
-- Recognize revenue and COGS only according to the approved Delivered-order rules.
-- Store historical product prices, buying costs, courier costs, and other required financial values as transaction snapshots so later setting changes do not rewrite history.
-- Use BDT for currency and `Asia/Dhaka` for business timezone behaviour.
-- Use exact numeric database types for money; do not use floating-point arithmetic for financial values.
-- Enforce important validation in both the application and database.
-- Keep private business information behind authenticated, database-enforced access control.
-- Make all interfaces responsive, accessible, and usable on mobile, tablet, and desktop.
-
-## Existing-system safety
-
-When inspecting the existing NexaNotion repository:
-
-- Use read-only commands during Phase 0.
-- Do not change its application code, migrations, environment files, or Git state without explicit authorization.
-- Do not run migrations against production.
-- Clearly separate confirmed findings from recommendations.
-- Report any compatibility risk before proposing shared-table changes.
-
-## Implementation quality
-
-- Prefer server-side data access and aggregation for private business data.
-- Use Supabase Row-Level Security on every private business table.
-- Keep service credentials server-only.
-- Use atomic database operations for an order and its items.
-- Add database constraints and indexes for foreign keys and frequent filters.
-- Use server-side pagination and bounded queries for large tables.
-- Avoid duplicate sources of calculated truth.
-- Include loading, empty, error, and success states in every operational module.
-- Warn before destructive or financially significant actions.
-- Maintain audit information for order status, settlement, refund, expense, and cash changes.
-
-## Validation
-
-Use the package manager detected from the project lockfile. Run the checks relevant to the changes before completing a task:
-
-- lint
-- TypeScript validation
-- unit and integration tests
-- production build
-- Playwright tests when UI workflows change
-- Supabase/RLS tests when database access rules change
-
-Financial work must also verify:
-
-- order-item revenue reconciles with order product revenue;
-- order-item COGS reconciles with order product COGS;
-- no unknown SKU or order links remain;
-- duplicate order numbers are rejected;
-- Delivered orders contain at least one order item;
-- Dashboard totals match the underlying filtered records.
-
-## Handoff requirements
-
-Every completed Codex task must report:
-
-- Summary
-- Files changed
-- Database migrations
-- Tests and results
-- Assumptions
-- Remaining risks or blockers
-- Manual actions required from the user
-- Recommended next phase or task
-
+The dashboard is currently single-business software. Workspace isolation,
+platform integrations, clean installation, background processing, SMTP,
+self-hosted deployment guides, and marketplace packaging remain incomplete.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 

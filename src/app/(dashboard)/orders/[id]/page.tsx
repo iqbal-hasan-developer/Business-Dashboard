@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Pencil } from "lucide-react";
 import { PageHeading } from "@/components/page-heading";
 import { StatusBadge } from "@/components/status-badge";
@@ -18,6 +18,7 @@ import { CustomerPaymentReceiptPanel } from "@/components/orders/customer-paymen
 import { customerPaymentReceiptEligibility } from "@/domain/customer-payments";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  if (resolveBusinessDataProvider() === "supabase") redirect("/orders");
   const { id } = await params;
   const repositoryPromise = getBusinessRepository();
   const userPromise = requireDashboardUser();

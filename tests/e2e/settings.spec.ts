@@ -9,8 +9,8 @@ test("owner-approved business defaults are visible and fail closed in mock mode"
   await expect(page.getByLabel("Timezone")).toHaveValue("Asia/Dhaka");
   await expect(page.getByLabel("Default courier")).toHaveValue("Steadfast");
   await expect(page.getByLabel("Inside Dhaka courier cost (BDT)")).toHaveValue("65");
-  await expect(page.getByLabel("Outside Dhaka courier cost (BDT)")).toHaveValue("115");
-  await expect(page.getByLabel("Packaging cost (BDT)")).toHaveValue("2");
+  await expect(page.getByLabel("Outside Dhaka courier cost (BDT)")).toHaveValue("135");
+  await expect(page.getByLabel("Packaging cost (BDT)")).toHaveValue("8");
   await expect(page.getByLabel("Tax / VAT default (%)")).toHaveValue("0");
 
   for (const label of ["Cash", "bKash", "Nagad", "Bank", "Steadfast"]) {

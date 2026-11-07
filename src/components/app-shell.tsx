@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardCheck,
+  BarChart3, Bell, Boxes, Building2, ChevronDown, CircleDollarSign, ClipboardCheck,
   LayoutDashboard, LogOut, Megaphone, PackagePlus, Plus, ReceiptText, Search,
-  Settings, ShoppingBag, SlidersHorizontal, WalletCards,
+  Settings, ShoppingBag, SlidersHorizontal, Users, WalletCards,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,7 +25,10 @@ import {
   SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/app/login/actions";
+import { switchWorkspaceAction } from "@/actions/workspaces";
 import type { DashboardUser } from "@/lib/auth/profile";
+import type { WorkspaceSummary } from "@/lib/auth/workspace-session";
+import { productName } from "@/lib/product";
 
 const primaryNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,17 +45,28 @@ const insightNav = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const workspaceNav = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/products", label: "Products", icon: Boxes },
+  { href: "/customers", label: "Customers", icon: Users },
+  { href: "/inventory", label: "Inventory", icon: PackagePlus },
+  { href: "/expenses", label: "Expenses", icon: ReceiptText },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/workspace", label: "Workspace & members", icon: Building2 },
+];
+
 const titleMap: Record<string, string> = {
   dashboard: "Business overview", orders: "Orders", products: "Products",
   marketing: "Marketing", expenses: "Expenses", "cash-settlements": "Cash settlements",
-  reports: "Reports", "data-checks": "Data checks", settings: "Settings", new: "Create order",
+  reports: "Reports", "data-checks": "Data checks", settings: "Settings", workspace: "Workspace & members", new: "Create order",
 };
 
 function pathIsActive(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
 }
 
-function NavGroup({ label, items }: { label: string; items: typeof primaryNav }) {
+function NavGroup({ label, items }: { label: string; items: Array<{ href: string; label: string; icon: typeof LayoutDashboard }> }) {
   const pathname = usePathname();
   return (
     <SidebarGroup className="px-3 py-2">
@@ -78,26 +92,25 @@ function NavGroup({ label, items }: { label: string; items: typeof primaryNav })
   );
 }
 
-function AppSidebar() {
+function AppSidebar({ workspace }: { workspace?: WorkspaceSummary }) {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="h-24 justify-center border-b border-sidebar-border px-3 group-data-[collapsible=icon]:h-16">
         <Link
           href="/dashboard"
-          aria-label="NexaNotion dashboard"
+          aria-label={`${productName} dashboard`}
           className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white px-3 py-2 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:p-1"
         >
-          <BrandLogo priority className="max-h-16 w-auto group-data-[collapsible=icon]:max-h-7" />
+          <BrandLogo className="max-h-16 w-auto group-data-[collapsible=icon]:max-h-7" />
         </Link>
       </SidebarHeader>
       <SidebarContent className="py-3">
-        <NavGroup label="Operate" items={primaryNav} />
-        <NavGroup label="Understand" items={insightNav} />
+        {workspace ? <NavGroup label="Workspace" items={workspaceNav} /> : <><NavGroup label="Operate" items={primaryNav} /><NavGroup label="Understand" items={insightNav} /></>}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="rounded-lg bg-sidebar-accent/65 p-3 group-data-[collapsible=icon]:hidden">
-          <p className="text-xs font-medium text-white">Development workspace</p>
-          <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/55">Private data via authenticated RLS</p>
+          <p className="truncate text-xs font-medium text-white">{workspace?.name ?? "Development workspace"}</p>
+          <p className="mt-1 text-[11px] leading-4 text-sidebar-foreground/55">{workspace ? "Access verified from workspace membership" : "Private data via authenticated RLS"}</p>
         </div>
       </SidebarFooter>
     </Sidebar>
@@ -130,7 +143,7 @@ function userInitials(user: DashboardUser) {
   return user.displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "DU";
 }
 
-function TopBar({ user }: { user: DashboardUser }) {
+function TopBar({ user, workspaces, activeWorkspaceId }: { user: DashboardUser; workspaces?: WorkspaceSummary[]; activeWorkspaceId?: string }) {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 text-white backdrop-blur md:border-border md:bg-white/95 md:px-6 md:text-foreground">
@@ -138,19 +151,20 @@ function TopBar({ user }: { user: DashboardUser }) {
       <div className="min-w-0 flex-1">
         <Link
           href="/dashboard"
-          aria-label="NexaNotion dashboard"
+          aria-label={`${productName} dashboard`}
           className="flex h-9 w-[112px] items-center justify-center rounded-lg bg-white px-2 py-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-white md:hidden"
         >
-          <BrandLogo priority className="max-h-8 w-auto" />
+          <BrandLogo className="max-h-8 w-auto" />
         </Link>
         <PageBreadcrumbs pathname={pathname} />
       </div>
-      <InputGroup className="hidden h-9 max-w-[260px] bg-muted/50 lg:flex">
+      {!workspaces ? <InputGroup className="hidden h-9 max-w-[260px] bg-muted/50 lg:flex">
         <InputGroupAddon><Search className="size-4" /></InputGroupAddon>
         <InputGroupInput placeholder="Search workspace" aria-label="Search workspace" />
         <InputGroupAddon align="inline-end" className="text-[10px]">⌘ K</InputGroupAddon>
-      </InputGroup>
-      <DropdownMenu>
+      </InputGroup> : null}
+      {workspaces?.length ? <form action={switchWorkspaceAction} className="max-w-44 sm:max-w-60"><label className="sr-only" htmlFor="active-workspace">Current workspace</label><select id="active-workspace" name="workspaceId" defaultValue={activeWorkspaceId ?? workspaces[0].id} onChange={(event) => event.currentTarget.form?.requestSubmit()} className="h-9 w-full truncate rounded-md border bg-background px-2 text-xs font-medium" aria-label="Current workspace">{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {workspace.role}</option>)}</select></form> : null}
+      {!workspaces ? <DropdownMenu>
         <DropdownMenuTrigger render={<Button size="sm" className="hidden gap-2 sm:flex" />}>
           <Plus className="size-4" /> Add new <ChevronDown className="size-3.5 opacity-70" />
         </DropdownMenuTrigger>
@@ -162,10 +176,10 @@ function TopBar({ user }: { user: DashboardUser }) {
             <DropdownMenuItem disabled><CircleDollarSign /> Expense entry not in this slice</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
-      </DropdownMenu>
-      <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-white hover:bg-sidebar-accent hover:text-white md:text-foreground md:hover:bg-muted md:hover:text-foreground">
+      </DropdownMenu> : null}
+      {!workspaces ? <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-white hover:bg-sidebar-accent hover:text-white md:text-foreground md:hover:bg-muted md:hover:text-foreground">
         <Bell className="size-4" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-coral-500 bg-red-500" />
-      </Button>
+      </Button> : null}
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" className="h-9 gap-2 px-1.5" aria-label={`Account menu for ${user.displayName}, ${user.role.replace("_", " ")}`} />}>
           <Avatar size="sm"><AvatarFallback className="bg-blue-100 font-semibold text-blue-700">{userInitials(user)}</AvatarFallback></Avatar>
@@ -177,7 +191,7 @@ function TopBar({ user }: { user: DashboardUser }) {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem render={<Link href="/settings" />}><SlidersHorizontal /> Settings</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href={workspaces ? "/workspace" : "/settings"} />}><SlidersHorizontal /> {workspaces ? "Workspace settings" : "Settings"}</DropdownMenuItem>
             <form action={signOut}>
               <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}><LogOut /> Sign out</DropdownMenuItem>
             </form>
@@ -188,10 +202,9 @@ function TopBar({ user }: { user: DashboardUser }) {
   );
 }
 
-const mobileNav = [primaryNav[0], primaryNav[1], { href: "/orders/new", label: "Add", icon: Plus }, primaryNav[2], { href: "/reports", label: "More", icon: SlidersHorizontal }];
-
-function MobileNav() {
+function MobileNav({ universal }: { universal: boolean }) {
   const pathname = usePathname();
+  const mobileNav = universal ? [workspaceNav[0], workspaceNav[1], workspaceNav[2], workspaceNav[4], workspaceNav[6]] : [primaryNav[0], primaryNav[1], { href: "/orders/new", label: "Add", icon: Plus }, primaryNav[2], { href: "/reports", label: "More", icon: SlidersHorizontal }];
   return (
     <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t bg-white px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
       {mobileNav.map((item) => {
@@ -204,15 +217,15 @@ function MobileNav() {
   );
 }
 
-export function AppShell({ children, user }: { children: React.ReactNode; user: DashboardUser }) {
+export function AppShell({ children, user, workspace }: { children: React.ReactNode; user: DashboardUser; workspace?: { activeWorkspace: WorkspaceSummary; workspaces: WorkspaceSummary[] } }) {
   return (
     <SidebarProvider defaultOpen style={{ "--sidebar-width": "14.5rem" } as React.CSSProperties}>
-      <AppSidebar />
+      <AppSidebar workspace={workspace?.activeWorkspace} />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar user={user} />
+        <TopBar user={user} workspaces={workspace?.workspaces} activeWorkspaceId={workspace?.activeWorkspace.id} />
         <main className="min-w-0 flex-1 px-4 py-5 pb-24 md:px-6 md:py-6 md:pb-8 xl:px-8">{children}</main>
       </SidebarInset>
-      <MobileNav />
+      <MobileNav universal={!!workspace} />
     </SidebarProvider>
   );
 }
