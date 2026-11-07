@@ -23,15 +23,25 @@ try {
   const extension = await client.query("select n.nspname as schema from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname='pg_trgm'");
   assert.equal(extension.rows[0]?.schema, "extensions", "pg_trgm must be installed in extensions");
   const indexes = await client.query(
-    "select indexname,indexdef from pg_indexes where schemaname='public' and indexname=any($1::text[]) order by indexname",
+    `select index_class.relname as indexname, access_method.amname,
+        operator_schema.nspname as operator_schema, operator_class.opcname as operator_class
+      from pg_catalog.pg_index index_data
+      join pg_catalog.pg_class index_class on index_class.oid=index_data.indexrelid
+      join pg_catalog.pg_namespace index_schema on index_schema.oid=index_class.relnamespace
+      join pg_catalog.pg_am access_method on access_method.oid=index_class.relam
+      cross join lateral unnest(index_data.indclass::oid[]) as classes(operator_class_oid)
+      join pg_catalog.pg_opclass operator_class on operator_class.oid=classes.operator_class_oid
+      join pg_catalog.pg_namespace operator_schema on operator_schema.oid=operator_class.opcnamespace
+      where index_schema.nspname='public' and index_class.relname=any($1::text[])
+      order by index_class.relname`,
     [expectedIndexes],
   );
-  assert.deepEqual(indexes.rows.map((row) => row.indexname).sort(), [...expectedIndexes].sort(), "migration trigram indexes are incomplete");
-  assert(indexes.rows.every((row) => row.indexdef.includes("extensions.gin_trgm_ops")), "migration indexes use an unexpected operator class");
+  assert.deepEqual(indexes.rows.map((row) => row.indexname).sort(), [...expectedIndexes].sort(), "migration trigram indexes are incomplete or lack the expected GIN operator class");
+  assert(indexes.rows.every((row) => row.amname === "gin" && row.operator_schema === "extensions" && row.operator_class === "gin_trgm_ops"), "migration indexes use an unexpected access method or operator class");
 
   await client.query("begin");
   await client.query("create temporary table phase4c_trgm_probe(value text) on commit drop");
-  await client.query("insert into phase4c_trgm_probe select 'synthetic search fixture ' || n from generate_series(1,20000) n");
+  await client.query("insert into phase4c_trgm_probe select 'synthetic search fixture ' || n from generate_series(1,20000) as gs(n)");
   await client.query("insert into phase4c_trgm_probe values ('phase4c-unique-search-token')");
   await client.query("create index phase4c_trgm_probe_idx on phase4c_trgm_probe using gin(value extensions.gin_trgm_ops)");
   await client.query("analyze phase4c_trgm_probe");
