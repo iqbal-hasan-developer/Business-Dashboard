@@ -13,9 +13,19 @@ select ok(
   'pg_trgm is installed in the expected extensions schema'
 );
 select is(
-  (select count(*)::integer from pg_catalog.pg_indexes
-   where schemaname = 'public' and indexname like '%\_trgm\_idx' escape '\'
-     and indexdef like '%extensions.gin_trgm_ops%'),
+  (select count(distinct index_class.oid)::integer
+   from pg_catalog.pg_index index_data
+   join pg_catalog.pg_class index_class on index_class.oid = index_data.indexrelid
+   join pg_catalog.pg_namespace index_schema on index_schema.oid = index_class.relnamespace
+   join pg_catalog.pg_am access_method on access_method.oid = index_class.relam
+   cross join lateral unnest(index_data.indclass::oid[]) as classes(operator_class_oid)
+   join pg_catalog.pg_opclass operator_class on operator_class.oid = classes.operator_class_oid
+   join pg_catalog.pg_namespace operator_schema on operator_schema.oid = operator_class.opcnamespace
+   where index_schema.nspname = 'public'
+     and index_class.relname like '%\_trgm\_idx' escape '\'
+     and access_method.amname = 'gin'
+     and operator_schema.nspname = 'extensions'
+     and operator_class.opcname = 'gin_trgm_ops'),
   13,
   'all migration 006 trigram indexes use the installed operator class'
 );
